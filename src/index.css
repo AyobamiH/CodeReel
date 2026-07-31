@@ -1,0 +1,201 @@
+@import '@fontsource-variable/inter';
+@import '@fontsource/jetbrains-mono/400.css';
+@import '@fontsource/jetbrains-mono/500.css';
+@import '@fontsource/fira-code/400.css';
+@import '@fontsource/ibm-plex-mono/400.css';
+@import '@fontsource/source-code-pro/400.css';
+@import 'tailwindcss';
+
+@theme {
+  --font-sans: 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --color-ink-950: #08090c;
+  --color-ink-900: #0d0f14;
+  --color-ink-850: #12141b;
+  --color-ink-800: #171a23;
+  --color-ink-700: #232735;
+  --color-accent-400: #818cf8;
+  --color-accent-500: #6366f1;
+  --color-accent-600: #4f46e5;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  background: var(--color-ink-950);
+  color: #d4d7e1;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overflow: hidden;
+}
+
+::selection {
+  background: rgba(99, 102, 241, 0.35);
+}
+
+/* ---------- scrollbars ---------- */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #2a2f3e transparent;
+}
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-thumb {
+  background: #2a2f3e;
+  border-radius: 8px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* ---------- dotted stage backdrop ---------- */
+.stage-grid {
+  background-image: radial-gradient(rgba(255, 255, 255, 0.055) 1px, transparent 1px);
+  background-size: 22px 22px;
+}
+
+/* ---------- checkerboard for transparent bg ---------- */
+.checkerboard {
+  background-image:
+    linear-gradient(45deg, #1c1f28 25%, transparent 25%),
+    linear-gradient(-45deg, #1c1f28 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #1c1f28 75%),
+    linear-gradient(-45deg, transparent 75%, #1c1f28 75%);
+  background-size: 20px 20px;
+  background-position:
+    0 0,
+    0 10px,
+    10px -10px,
+    -10px 0;
+  background-color: #14161d;
+}
+
+/* ---------- range inputs (timeline + sliders) ---------- */
+input[type='range'] {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 20px;
+  background: transparent;
+  cursor: pointer;
+  --fill: 0%;
+  --track-h: 4px;
+  --track-bg: rgba(255, 255, 255, 0.08);
+}
+input[type='range']::-webkit-slider-runnable-track {
+  height: var(--track-h);
+  border-radius: 999px;
+  background: linear-gradient(
+    to right,
+    #6366f1 0%,
+    #a855f7 var(--fill),
+    var(--track-bg) var(--fill)
+  );
+}
+input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  margin-top: calc((var(--track-h) - 14px) / 2);
+  border-radius: 999px;
+  background: #fff;
+  border: none;
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.35),
+    0 2px 6px rgba(0, 0, 0, 0.5);
+  transition: transform 0.12s ease;
+}
+input[type='range']:hover::-webkit-slider-thumb,
+input[type='range']:active::-webkit-slider-thumb {
+  transform: scale(1.18);
+}
+input[type='range']::-moz-range-track {
+  height: var(--track-h);
+  border-radius: 999px;
+  background: var(--track-bg);
+}
+input[type='range']::-moz-range-progress {
+  height: var(--track-h);
+  border-radius: 999px;
+  background: linear-gradient(to right, #6366f1, #a855f7);
+}
+input[type='range']::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  background: #fff;
+  border: none;
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.35),
+    0 2px 6px rgba(0, 0, 0, 0.5);
+}
+
+/* ---------- caret blink ---------- */
+@keyframes caret-blink {
+  0%,
+  55% {
+    opacity: 1;
+  }
+  56%,
+  100% {
+    opacity: 0;
+  }
+}
+.caret-blink {
+  animation: caret-blink 0.9s steps(1) infinite;
+}
+
+/* ---------- modal entrance ---------- */
+@keyframes modal-pop {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+.modal-pop {
+  animation: modal-pop 0.22s cubic-bezier(0.2, 0.9, 0.3, 1.2) both;
+}
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.fade-in {
+  animation: fade-in 0.18s ease both;
+}
+
+/* ---------- export progress shimmer ---------- */
+@keyframes shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+.shimmer {
+  background: linear-gradient(
+    100deg,
+    #6366f1 30%,
+    #c084fc 45%,
+    #6366f1 60%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.6s linear infinite;
+}
