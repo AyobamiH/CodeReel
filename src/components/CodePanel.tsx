@@ -2,6 +2,7 @@ import { ChevronLeft, ChevronRight, Code2, Copy, Layers, ListVideo, Plus, Trash2
 import type { InputMode, Language, Settings, Step, TransitionStyle } from '../lib/types'
 import { LANGUAGES, TRANSITIONS } from '../lib/types'
 import { SAMPLES, STEP_SAMPLE } from '../lib/samples'
+import { CodeEditor } from './CodeEditor'
 import { Segmented, Select, Slider } from './ui'
 
 function newId(): string {
@@ -192,15 +193,13 @@ export function CodePanel({
         </div>
       )}
 
-      <textarea
+      <CodeEditor
+        className="min-h-0 flex-1"
         value={settings.mode === 'steps' ? step?.code ?? '' : settings.code}
-        onChange={(e) =>
-          settings.mode === 'steps' ? updateStep(active, { code: e.target.value }) : update({ code: e.target.value })
+        language={settings.language}
+        onChange={(v) =>
+          settings.mode === 'steps' ? updateStep(active, { code: v }) : update({ code: v })
         }
-        spellCheck={false}
-        autoCapitalize="off"
-        autoCorrect="off"
-        className="min-h-0 flex-1 resize-none bg-transparent p-4 font-mono text-[12.5px] leading-relaxed text-zinc-300 outline-none placeholder:text-zinc-600 selection:bg-accent-500/30"
         placeholder="Paste your code here…"
       />
 
