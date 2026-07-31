@@ -1,8 +1,34 @@
-import { Check, Paintbrush } from 'lucide-react'
+import {
+  ArrowDown,
+  ArrowDownLeft,
+  ArrowDownRight,
+  ArrowLeft,
+  ArrowRight,
+  ArrowUp,
+  ArrowUpLeft,
+  ArrowUpRight,
+  Check,
+  Paintbrush,
+  Square,
+  type LucideIcon,
+} from 'lucide-react'
 import type { Settings } from '../lib/types'
 import { FONTS } from '../lib/types'
 import { BACKGROUNDS, THEMES } from '../lib/themes'
 import { Row, Section, Select, Slider, Toggle } from './ui'
+
+/** 3×3 pad of tilt directions; (0,0) is face-on. */
+const TILT_PAD: { x: number; y: number; Icon: LucideIcon; title: string }[] = [
+  { x: -1, y: -1, Icon: ArrowUpLeft, title: 'Up-left' },
+  { x: 0, y: -1, Icon: ArrowUp, title: 'Up' },
+  { x: 1, y: -1, Icon: ArrowUpRight, title: 'Up-right' },
+  { x: -1, y: 0, Icon: ArrowLeft, title: 'Left' },
+  { x: 0, y: 0, Icon: Square, title: 'Face-on' },
+  { x: 1, y: 0, Icon: ArrowRight, title: 'Right' },
+  { x: -1, y: 1, Icon: ArrowDownLeft, title: 'Down-left' },
+  { x: 0, y: 1, Icon: ArrowDown, title: 'Down' },
+  { x: 1, y: 1, Icon: ArrowDownRight, title: 'Down-right' },
+]
 
 export function StylePanel({
   settings,
@@ -140,8 +166,31 @@ export function StylePanel({
       </Section>
 
       <Section title="3D">
+        <div>
+          <div className="mb-1.5 text-[13px] text-zinc-400">Perspective</div>
+          <div className="grid w-[108px] grid-cols-3 gap-1">
+            {TILT_PAD.map(({ x, y, Icon, title }) => {
+              const active = settings.tiltX === x && settings.tiltY === y
+              return (
+                <button
+                  key={title}
+                  type="button"
+                  title={title}
+                  onClick={() => update({ tiltX: x, tiltY: y })}
+                  className={`flex h-8 cursor-pointer items-center justify-center rounded-md border transition-all duration-150 ${
+                    active
+                      ? 'border-accent-500/60 bg-accent-500/15 text-accent-300 ring-1 ring-accent-500/40'
+                      : 'border-white/8 bg-white/[0.02] text-zinc-500 hover:border-white/20 hover:bg-white/5 hover:text-zinc-300'
+                  }`}
+                >
+                  <Icon className="h-3.5 w-3.5" />
+                </button>
+              )
+            })}
+          </div>
+        </div>
         <Slider
-          label="Perspective tilt"
+          label="Tilt amount"
           value={settings.tilt}
           min={0}
           max={30}

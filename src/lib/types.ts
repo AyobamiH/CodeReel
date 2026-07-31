@@ -86,8 +86,12 @@ export interface Settings {
   fontId: string
   radius: number
   shadow: number
-  /** 3D perspective tilt of the window in degrees, 0 = flat-on */
+  /** 3D perspective tilt intensity in degrees, 0 = flat-on */
   tilt: number
+  /** tilt direction, horizontal: -1 = face left … 1 = face right, 0 = none */
+  tiltX: number
+  /** tilt direction, vertical: -1 = look up at … 1 = look down at, 0 = none */
+  tiltY: number
   animation: AnimationStyle
   duration: number
   speed: number

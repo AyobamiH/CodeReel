@@ -389,11 +389,11 @@ export function PreviewCanvas({
       ? 'none'
       : `0 ${settings.shadow * 0.45}px ${settings.shadow * 1.1}px -${settings.shadow * 0.18}px rgba(0,0,0,${shadowA})`
 
-  // 3D window tilt: turn on Y, slight look-down on X (both derived from one `tilt` angle)
-  const windowTilt =
-    settings.tilt > 0
-      ? `rotateY(${-settings.tilt}deg) rotateX(${(settings.tilt * 0.35).toFixed(2)}deg)`
-      : undefined
+  // 3D window tilt: the direction pad picks which way it faces, `tilt` sets the angle
+  const tilted = settings.tilt > 0 && (settings.tiltX !== 0 || settings.tiltY !== 0)
+  const windowTilt = tilted
+    ? `rotateY(${settings.tiltX * settings.tilt}deg) rotateX(${settings.tiltY * settings.tilt}deg)`
+    : undefined
 
   return (
     <div ref={stageRef} className="stage-grid relative flex min-h-0 flex-1 items-center justify-center overflow-hidden">
@@ -409,7 +409,7 @@ export function PreviewCanvas({
             />
           )}
 
-          <div style={{ transform: `scale(${scale})`, perspective: settings.tilt > 0 ? '1600px' : undefined }}>
+          <div style={{ transform: `scale(${scale})`, perspective: tilted ? '1600px' : undefined }}>
             <div
               ref={windowRef}
               className="overflow-hidden"
