@@ -21,7 +21,7 @@ export const LANGUAGES: { id: Language; label: string }[] = [
   { id: 'bash', label: 'Bash' },
 ]
 
-export type AnimationStyle = 'typewriter' | 'fade' | 'slide'
+export type AnimationStyle = 'typewriter' | 'fade' | 'slide' | 'flip'
 export type Aspect = '16:9' | '1:1' | '9:16'
 export type Format = 'mp4' | 'gif' | 'webm'
 
@@ -29,12 +29,13 @@ export type Format = 'mp4' | 'gif' | 'webm'
 export type InputMode = 'sequence' | 'steps'
 
 /** How a step reveals its inserted code relative to the previous step. */
-export type TransitionStyle = 'diff' | 'crossfade' | 'typewriter'
+export type TransitionStyle = 'diff' | 'crossfade' | 'typewriter' | 'flip3d'
 
 export const TRANSITIONS: { id: TransitionStyle; label: string }[] = [
   { id: 'diff', label: 'Diff reveal' },
   { id: 'crossfade', label: 'Crossfade' },
   { id: 'typewriter', label: 'Typewriter' },
+  { id: 'flip3d', label: 'Flip 3D' },
 ]
 
 export interface Step {
@@ -85,6 +86,8 @@ export interface Settings {
   fontId: string
   radius: number
   shadow: number
+  /** 3D perspective tilt of the window in degrees, 0 = flat-on */
+  tilt: number
   animation: AnimationStyle
   duration: number
   speed: number

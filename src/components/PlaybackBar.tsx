@@ -5,6 +5,7 @@ import {
   Play,
   Repeat,
   RotateCcw,
+  Rotate3d,
   SkipBack,
   SkipForward,
   Sparkles,
@@ -173,6 +174,15 @@ export function PlaybackBar({
                 label: (
                   <span className="flex items-center gap-1.5">
                     <MoveRight className="h-3.5 w-3.5" /> Slide
+                  </span>
+                ),
+              },
+              {
+                value: 'flip',
+                title: '3D flip-up reveal',
+                label: (
+                  <span className="flex items-center gap-1.5">
+                    <Rotate3d className="h-3.5 w-3.5" /> 3D
                   </span>
                 ),
               },

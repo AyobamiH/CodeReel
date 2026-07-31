@@ -8,6 +8,7 @@ import { addedIndices, diffLineStatus, type LineStatus } from '../lib/diff'
 import { buildTimeline, locate } from '../lib/timeline'
 
 const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3)
+const easeInOutCubic = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2)
 const clamp01 = (t: number) => Math.min(1, Math.max(0, t))
 
 function TokenSpans({ tokens, colors, fg }: { tokens: Token[]; colors: Record<string, string | undefined>; fg: string }) {
@@ -52,6 +53,9 @@ function CodeRow({
   opacity = 1,
   tx = 0,
   ty = 0,
+  tz = 0,
+  rotX = 0,
+  blur = 0,
   highlight = 0,
   clip = false,
   caret,
@@ -63,17 +67,26 @@ function CodeRow({
   opacity?: number
   tx?: number
   ty?: number
+  tz?: number
+  rotX?: number
+  blur?: number
   highlight?: number
   clip?: boolean
   caret?: ReactNode
 }) {
+  const transform =
+    tx || ty || tz || rotX
+      ? `translate3d(${tx}px, ${ty}px, ${tz}px)${rotX ? ` rotateX(${rotX}deg)` : ''}`
+      : undefined
   return (
     <div
       className="flex whitespace-pre"
       style={{
         height: heightPx ?? ctx.lineHeightPx,
         opacity,
-        transform: tx || ty ? `translate(${tx}px, ${ty}px)` : undefined,
+        transform,
+        transformOrigin: rotX ? '50% 0%' : undefined,
+        filter: blur ? `blur(${blur}px)` : undefined,
         overflow: clip ? 'hidden' : undefined,
         background: highlight > 0 ? `rgba(124,131,253,${0.16 * highlight})` : undefined,
         borderRadius: highlight > 0 ? 4 : undefined,
@@ -142,14 +155,21 @@ function revealRows(
     })
   }
 
-  // fade / slide: staggered per-line reveal
+  // fade / slide / flip: staggered per-line reveal
   const stagger = n > 1 ? 0.72 / (n - 1) : 0
   const lineDur = Math.max(0.28, stagger * 2.2)
   return lines.map((line, i) => {
     const t = easeOutCubic(clamp01((revealT - i * stagger) / lineDur))
-    const tx = animation === 'slide' ? (1 - t) * -32 : 0
-    const ty = animation === 'fade' ? (1 - t) * 14 : 0
-    return <CodeRow key={i} ctx={ctx} idx={i} tokens={line} opacity={t} tx={tx} ty={ty} />
+    const rest = 1 - t
+    const tx = animation === 'slide' ? rest * -32 : 0
+    const ty = animation === 'fade' ? rest * 14 : 0
+    // flip: each line hinges down from its top edge and rises out of depth
+    const rotX = animation === 'flip' ? rest * 82 : 0
+    const tz = animation === 'flip' ? rest * -60 : 0
+    const blur = animation === 'flip' ? rest * 2.5 : 0
+    return (
+      <CodeRow key={i} ctx={ctx} idx={i} tokens={line} opacity={t} tx={tx} ty={ty} tz={tz} rotX={rotX} blur={blur} />
+    )
   })
 }
 
@@ -304,6 +324,36 @@ export function PreviewCanvas({
             <div style={{ opacity: easeOutCubic(localT) }}>{fullRows(nextLines, ctx)}</div>
           </div>
         )
+      } else if (style === 'flip3d') {
+        // card flip: the outgoing snapshot swings to edge-on, the incoming swings in from the other side
+        const showOut = localT < 0.5
+        const outY = easeInOutCubic(clamp01(localT / 0.5)) * 90
+        const inY = -90 + easeInOutCubic(clamp01((localT - 0.5) / 0.5)) * 90
+        rows = (
+          <div className="relative" style={{ perspective: '1700px' }}>
+            <div
+              className="pointer-events-none absolute inset-0"
+              style={{
+                transform: `rotateY(${outY}deg)`,
+                transformOrigin: 'center',
+                backfaceVisibility: 'hidden',
+                opacity: showOut ? 1 : 0,
+              }}
+            >
+              {fullRows(prevLines, ctx)}
+            </div>
+            <div
+              style={{
+                transform: `rotateY(${inY}deg)`,
+                transformOrigin: 'center',
+                backfaceVisibility: 'hidden',
+                opacity: showOut ? 0 : 1,
+              }}
+            >
+              {fullRows(nextLines, ctx)}
+            </div>
+          </div>
+        )
       } else {
         const status = diffLineStatus(settings.steps[phase.from ?? 0].code, settings.steps[phase.step].code)
         rows =
@@ -339,6 +389,12 @@ export function PreviewCanvas({
       ? 'none'
       : `0 ${settings.shadow * 0.45}px ${settings.shadow * 1.1}px -${settings.shadow * 0.18}px rgba(0,0,0,${shadowA})`
 
+  // 3D window tilt: turn on Y, slight look-down on X (both derived from one `tilt` angle)
+  const windowTilt =
+    settings.tilt > 0
+      ? `rotateY(${-settings.tilt}deg) rotateX(${(settings.tilt * 0.35).toFixed(2)}deg)`
+      : undefined
+
   return (
     <div ref={stageRef} className="stage-grid relative flex min-h-0 flex-1 items-center justify-center overflow-hidden">
       {canvasW > 40 && (
@@ -353,11 +409,18 @@ export function PreviewCanvas({
             />
           )}
 
-          <div style={{ transform: `scale(${scale})` }}>
+          <div style={{ transform: `scale(${scale})`, perspective: settings.tilt > 0 ? '1600px' : undefined }}>
             <div
               ref={windowRef}
               className="overflow-hidden"
-              style={{ background: theme.bg, borderRadius: settings.radius, boxShadow, border: '1px solid rgba(255,255,255,0.08)' }}
+              style={{
+                background: theme.bg,
+                borderRadius: settings.radius,
+                boxShadow,
+                border: '1px solid rgba(255,255,255,0.08)',
+                transform: windowTilt,
+                transformOrigin: 'center center',
+              }}
             >
               {settings.chrome && (
                 <div className="relative flex h-9 items-center px-3.5" style={{ background: theme.chromeBg }}>
@@ -385,6 +448,7 @@ export function PreviewCanvas({
                   lineHeight: `${lineHeightPx}px`,
                   color: theme.fg,
                   minHeight: codeMinHeight,
+                  perspective: '1400px',
                 }}
               >
                 {rows}

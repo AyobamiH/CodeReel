@@ -139,6 +139,17 @@ export function StylePanel({
         />
       </Section>
 
+      <Section title="3D">
+        <Slider
+          label="Perspective tilt"
+          value={settings.tilt}
+          min={0}
+          max={30}
+          unit="°"
+          onChange={(v) => update({ tilt: v })}
+        />
+      </Section>
+
       <Section title="Typography">
         <Select
           value={settings.fontId}
