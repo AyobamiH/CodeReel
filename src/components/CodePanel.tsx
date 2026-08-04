@@ -1,6 +1,9 @@
-import { ChevronLeft, ChevronRight, Code2, Copy, Layers, ListVideo, Plus, Trash2 } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Code2, Copy, Layers, ListVideo, Plus, Trash2, Upload } from 'lucide-react'
+import { type ChangeEvent, useRef } from 'react'
 import type { InputMode, Language, Settings, Step, TransitionStyle } from '../lib/types'
 import { LANGUAGES, TRANSITIONS } from '../lib/types'
+import { SOURCE_FILE_ACCEPT } from '../lib/sourceFile'
+import { useSourceFileUpload } from '../lib/useSourceFileUpload'
 import { SAMPLES, STEP_SAMPLE } from '../lib/samples'
 import { CodeEditor } from './CodeEditor'
 import { Segmented, Select, Slider } from './ui'
@@ -31,10 +34,24 @@ export function CodePanel({
   const steps = settings.steps
   const active = Math.min(activeStep, steps.length - 1)
   const step = steps[active]
+  const uploadInput = useRef<HTMLInputElement>(null)
 
   const onLanguage = (lang: Language) => {
     const untouched = settings.code === SAMPLES[settings.language]
     update({ language: lang, ...(untouched ? { code: SAMPLES[lang] } : {}) })
+  }
+
+  const { status: uploadStatus, upload } = useSourceFileUpload({
+    mode: settings.mode,
+    steps,
+    activeStep: active,
+    update,
+  })
+
+  const onUpload = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (file) void upload(file)
   }
 
   const patchSteps = (next: Step[]) => update({ steps: next })
@@ -83,13 +100,31 @@ export function CodePanel({
           <Code2 className="h-4 w-4 text-accent-400" />
           Code
         </div>
-        <Select
-          className="w-[130px]"
-          value={settings.language}
-          options={LANGUAGES.map((l) => ({ value: l.id, label: l.label }))}
-          onChange={(v) => onLanguage(v as Language)}
-        />
+        <div className="flex items-center gap-1.5">
+          <input ref={uploadInput} type="file" accept={SOURCE_FILE_ACCEPT} onChange={onUpload} className="sr-only" />
+          <button
+            type="button"
+            onClick={() => uploadInput.current?.click()}
+            title="Upload source file"
+            className="flex h-[30px] w-[30px] cursor-pointer items-center justify-center rounded-lg border border-white/10 text-zinc-400 transition-colors hover:border-white/20 hover:bg-white/5 hover:text-zinc-200"
+          >
+            <Upload className="h-3.5 w-3.5" />
+            <span className="sr-only">Upload file</span>
+          </button>
+          <Select
+            className="w-[130px]"
+            value={settings.language}
+            options={LANGUAGES.map((l) => ({ value: l.id, label: l.label }))}
+            onChange={(v) => onLanguage(v as Language)}
+          />
+        </div>
       </div>
+
+      {uploadStatus && (
+        <p className={`border-b border-white/5 px-4 py-2 text-[12px] ${uploadStatus.type === 'error' ? 'text-rose-300' : 'text-zinc-400'}`} role="status">
+          {uploadStatus.message}
+        </p>
+      )}
 
       {/* input mode */}
       <div className="border-b border-white/5 px-4 py-3">
