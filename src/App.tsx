@@ -13,7 +13,7 @@ import { ExportModal } from './components/ExportModal'
 const DEFAULT_SETTINGS: Settings = {
   mode: 'sequence',
   code: SAMPLES.typescript,
-  console: null,
+  console: '',
   consoleDur: 2.5,
   steps: makeDefaultSteps(),
   transition: 'diff',

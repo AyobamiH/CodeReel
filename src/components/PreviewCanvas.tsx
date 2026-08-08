@@ -320,7 +320,7 @@ export function PreviewCanvas({
 
   // console output tokenized once (always bash), not re-scanned every frame
   const consoleLines = useMemo(
-    () => (settings.console !== null ? tokenizeLines(settings.console, 'bash') : []),
+    () => (settings.console.trim() !== '' ? tokenizeLines(settings.console, 'bash') : []),
     [settings.console],
   )
 
@@ -410,7 +410,7 @@ export function PreviewCanvas({
   const rows = (
     <>
       <div style={{ minHeight: codeMinHeight }}>{codeRows}</div>
-      {settings.console !== null && (
+      {settings.console.trim() !== '' && (
         <div
           className="mt-5 overflow-hidden rounded-lg border border-white/10"
           style={{

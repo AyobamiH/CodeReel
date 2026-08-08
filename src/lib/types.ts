@@ -66,7 +66,8 @@ export interface Settings {
   // input
   mode: InputMode
   code: string
-  console: string | null
+  /** console output shown below the code; empty = no console section rendered */
+  console: string
   /** seconds the console section takes to type out */
   consoleDur: number
   steps: Step[]
