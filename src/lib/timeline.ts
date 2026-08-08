@@ -34,7 +34,7 @@ export function buildTimeline(settings: Settings): Timeline {
   const { steps, duration, stepHold, transitionDur, transition } = settings
   const phases: Phase[] = []
   // only reserve console time when there's actual output to type out
-  const hasConsole = settings.console !== null && settings.console.trim() !== ''
+  const hasConsole = settings.console.trim() !== ''
   const consoleDur = Math.max(0.1, settings.consoleDur)
 
   if (settings.mode === 'sequence') {

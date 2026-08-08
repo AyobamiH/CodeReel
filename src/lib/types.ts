@@ -38,6 +38,15 @@ export const TRANSITIONS: { id: TransitionStyle; label: string }[] = [
   { id: 'flip3d', label: 'Flip 3D' },
 ]
 
+/** Semantic status of the console output — sets the dot colour in the preview. */
+export type ConsoleStatus = 'success' | 'warning' | 'error'
+
+export const CONSOLE_STATUSES: { id: ConsoleStatus; label: string; dot: string }[] = [
+  { id: 'success', label: 'Success', dot: '#34d399' },
+  { id: 'warning', label: 'Warning', dot: '#fb923c' },
+  { id: 'error', label: 'Error', dot: '#f87171' },
+]
+
 export interface Step {
   id: string
   /** Full code snapshot at this step. */
@@ -66,9 +75,12 @@ export interface Settings {
   // input
   mode: InputMode
   code: string
-  console: string | null
+  /** console output shown below the code; empty = no console section rendered */
+  console: string
   /** seconds the console section takes to type out */
   consoleDur: number
+  /** semantic status of the console output — sets the dot colour */
+  consoleStatus: ConsoleStatus
   steps: Step[]
   /** global default transition for steps that don't override it */
   transition: TransitionStyle
