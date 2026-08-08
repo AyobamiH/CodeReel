@@ -67,6 +67,8 @@ export interface Settings {
   mode: InputMode
   code: string
   console: string | null
+  /** seconds the console section takes to type out */
+  consoleDur: number
   steps: Step[]
   /** global default transition for steps that don't override it */
   transition: TransitionStyle

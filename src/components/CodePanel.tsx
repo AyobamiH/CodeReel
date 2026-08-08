@@ -90,7 +90,7 @@ export function CodePanel({
             options={LANGUAGES.map((l) => ({ value: l.id, label: l.label }))}
             onChange={(v) => onLanguage(v as Language)}
           />
-          {settings.mode === 'sequence' && settings.console === null && (
+          {settings.console === null && (
             <button
               type="button"
               onClick={() => update({ console: '' })}
@@ -216,8 +216,8 @@ export function CodePanel({
           }
           placeholder="Paste your code here…"
         />
-        {settings.mode === 'sequence' && settings.console !== null && (
-          <div className="flex min-h-0 flex-1 flex-col border-t border-white/10">
+        {settings.console !== null && (
+          <div className="flex min-h-0 basis-2/5 flex-col border-t border-white/10">
             <div className="flex items-center justify-between px-4 py-2">
               <div className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-wider text-emerald-400/80">
                 <Terminal className="h-3.5 w-3.5" />
@@ -231,6 +231,17 @@ export function CodePanel({
               >
                 <X className="h-3.5 w-3.5" />
               </button>
+            </div>
+            <div className="px-4 pb-1">
+              <Slider
+                label="Reveal time"
+                value={settings.consoleDur}
+                min={0.5}
+                max={8}
+                step={0.1}
+                unit="s"
+                onChange={(v) => update({ consoleDur: v })}
+              />
             </div>
             <CodeEditor
               className="min-h-0 flex-1"

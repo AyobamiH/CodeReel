@@ -14,6 +14,7 @@ const DEFAULT_SETTINGS: Settings = {
   mode: 'sequence',
   code: SAMPLES.typescript,
   console: null,
+  consoleDur: 2.5,
   steps: makeDefaultSteps(),
   transition: 'diff',
   stepHold: 1.2,
@@ -50,7 +51,7 @@ export default function App() {
     setSettings((prev) => ({ ...prev, ...patch }))
   }, [])
 
-  // in steps mode the whole timeline drives the clock; in sequence mode, plain duration
+  // the built timeline's total length is the playback clock in both modes
   const timeline = useMemo(() => buildTimeline(settings), [settings])
   const effectiveDuration = timeline.total
 
@@ -125,7 +126,9 @@ export default function App() {
         </main>
         <StylePanel settings={settings} update={update} />
       </div>
-      {exporting && <ExportModal settings={settings} onClose={() => setExporting(false)} />}
+      {exporting && (
+        <ExportModal settings={settings} duration={effectiveDuration} onClose={() => setExporting(false)} />
+      )}
     </div>
   )
 }
