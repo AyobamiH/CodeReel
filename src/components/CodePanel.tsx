@@ -1,7 +1,7 @@
 import { type ChangeEvent, useRef, useState } from 'react'
 import { ChevronDown, ChevronLeft, ChevronRight, Code2, Copy, Layers, ListVideo, Plus, Terminal, Trash2, Upload } from 'lucide-react'
 import type { InputMode, Language, Settings, Step, TransitionStyle } from '../lib/types'
-import { LANGUAGES, TRANSITIONS } from '../lib/types'
+import { CONSOLE_STATUSES, LANGUAGES, TRANSITIONS } from '../lib/types'
 import { SOURCE_FILE_ACCEPT } from '../lib/sourceFile'
 import { useSourceFileUpload } from '../lib/useSourceFileUpload'
 import { SAMPLES, STEP_SAMPLE } from '../lib/samples'
@@ -37,6 +37,7 @@ export function CodePanel({
   const uploadInput = useRef<HTMLInputElement>(null)
   const [consoleOpen, setConsoleOpen] = useState(() => settings.console.trim() !== '')
   const hasConsole = settings.console.trim() !== ''
+  const consoleStatus = CONSOLE_STATUSES.find((s) => s.id === settings.consoleStatus) ?? CONSOLE_STATUSES[0]
 
   const onLanguage = (lang: Language) => {
     const untouched = settings.code === SAMPLES[settings.language]
@@ -242,22 +243,50 @@ export function CodePanel({
         />
         {/* console accordion — always available; collapse is cosmetic (empty content = nothing rendered in the video) */}
         <div className={`flex flex-col border-t border-white/10 ${consoleOpen ? 'min-h-0 basis-2/5' : 'shrink-0'}`}>
-          <button
-            type="button"
-            onClick={() => setConsoleOpen((o) => !o)}
-            aria-expanded={consoleOpen}
-            title={consoleOpen ? 'Collapse console section' : 'Expand console section'}
-            className="flex cursor-pointer items-center justify-between px-4 py-2 text-left transition-colors hover:bg-white/5"
-          >
-            <span className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-wider text-emerald-400/80">
+          <div className="flex items-center justify-between">
+            <button
+              type="button"
+              onClick={() => setConsoleOpen((o) => !o)}
+              aria-expanded={consoleOpen}
+              title={consoleOpen ? 'Collapse console section' : 'Expand console section'}
+              className="flex flex-1 cursor-pointer items-center gap-2 px-4 py-2 text-left text-[11px] font-medium uppercase tracking-wider transition-colors hover:bg-white/5"
+              style={{ color: consoleStatus.dot }}
+            >
               <Terminal className="h-3.5 w-3.5" />
               Console
               {!consoleOpen && hasConsole && (
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" title="Has console output" />
+                <span className="h-1.5 w-1.5 rounded-full" style={{ background: consoleStatus.dot }} title="Has console output" />
               )}
-            </span>
-            <ChevronDown className={`h-4 w-4 text-zinc-500 transition-transform ${consoleOpen ? '' : '-rotate-90'}`} />
-          </button>
+              <ChevronDown className={`ml-1 h-4 w-4 text-zinc-500 transition-transform ${consoleOpen ? '' : '-rotate-90'}`} />
+            </button>
+            {consoleOpen && (
+              <div className="flex items-center gap-1.5 pr-3" role="radiogroup" aria-label="Console status">
+                {CONSOLE_STATUSES.map((s) => {
+                  const selected = settings.consoleStatus === s.id
+                  return (
+                    <button
+                      key={s.id}
+                      type="button"
+                      role="radio"
+                      aria-checked={selected}
+                      onClick={() => update({ consoleStatus: s.id })}
+                      title={s.label}
+                      className="flex h-4 w-4 cursor-pointer items-center justify-center rounded-full transition-transform hover:scale-110"
+                    >
+                      <span
+                        className="h-2.5 w-2.5 rounded-full transition-all"
+                        style={{
+                          background: s.dot,
+                          opacity: selected ? 1 : 0.3,
+                          boxShadow: selected ? '0 0 0 2px rgba(255,255,255,0.18)' : undefined,
+                        }}
+                      />
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+          </div>
           {consoleOpen && (
             <>
               <div className="px-4 pb-1">

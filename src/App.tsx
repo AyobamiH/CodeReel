@@ -15,6 +15,7 @@ const DEFAULT_SETTINGS: Settings = {
   code: SAMPLES.typescript,
   console: '',
   consoleDur: 2.5,
+  consoleStatus: 'success',
   steps: makeDefaultSteps(),
   transition: 'diff',
   stepHold: 1.2,

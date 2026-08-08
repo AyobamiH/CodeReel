@@ -1,6 +1,6 @@
 import { useMemo, type ReactNode } from 'react'
 import type { Settings } from '../lib/types'
-import { ASPECTS, FONTS } from '../lib/types'
+import { ASPECTS, CONSOLE_STATUSES, FONTS } from '../lib/types'
 import { BACKGROUNDS, THEMES } from '../lib/themes'
 import { lineLength, tokenizeLines, type Token } from '../lib/highlight'
 import { useElementSize } from '../lib/usePlayback'
@@ -299,6 +299,7 @@ export function PreviewCanvas({
     settings.customBg ?? (BACKGROUNDS.find((b) => b.id === settings.backgroundId) ?? BACKGROUNDS[0]).css
   const font = FONTS.find((f) => f.id === settings.fontId) ?? FONTS[0]
   const aspect = ASPECTS.find((a) => a.id === settings.aspect) ?? ASPECTS[0]
+  const consoleDot = (CONSOLE_STATUSES.find((s) => s.id === settings.consoleStatus) ?? CONSOLE_STATUSES[0]).dot
 
   const isSteps = settings.mode === 'steps' && settings.steps.length > 0
   const lineHeightPx = settings.fontSize * 1.65
@@ -421,7 +422,7 @@ export function PreviewCanvas({
           }}
         >
           <div className="flex items-center gap-2 border-b border-white/10 px-3 py-2 text-[10px] font-medium uppercase tracking-[0.16em]" style={{ color: theme.lineNumber }}>
-            <span className="h-2 w-2 rounded-full bg-emerald-400" />
+            <span className="h-2 w-2 rounded-full" style={{ background: consoleDot }} />
             Console
           </div>
           <div className="px-3 py-3" style={{ minHeight: lineHeightPx * Math.max(1, consoleLines.length) + 24 }}>
