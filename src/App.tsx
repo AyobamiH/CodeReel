@@ -13,6 +13,8 @@ import { ExportModal } from './components/ExportModal'
 const DEFAULT_SETTINGS: Settings = {
   mode: 'sequence',
   code: SAMPLES.typescript,
+  console: null,
+  consoleDur: 2.5,
   steps: makeDefaultSteps(),
   transition: 'diff',
   stepHold: 1.2,
@@ -49,9 +51,9 @@ export default function App() {
     setSettings((prev) => ({ ...prev, ...patch }))
   }, [])
 
-  // in steps mode the whole timeline drives the clock; in sequence mode, plain duration
+  // the built timeline's total length is the playback clock in both modes
   const timeline = useMemo(() => buildTimeline(settings), [settings])
-  const effectiveDuration = settings.mode === 'steps' ? timeline.total : settings.duration
+  const effectiveDuration = timeline.total
 
   const playback = usePlayback(effectiveDuration, settings.speed, settings.loop)
   const { restart, toggle, seek, pause, playTo } = playback
@@ -59,7 +61,7 @@ export default function App() {
   // editing content / switching language / mode restarts the take
   useEffect(() => {
     restart()
-  }, [settings.code, settings.steps, settings.language, settings.mode, restart])
+  }, [settings.code, settings.console, settings.steps, settings.language, settings.mode, restart])
 
   // keep the editor's active step in range
   useEffect(() => {
@@ -124,7 +126,9 @@ export default function App() {
         </main>
         <StylePanel settings={settings} update={update} />
       </div>
-      {exporting && <ExportModal settings={settings} onClose={() => setExporting(false)} />}
+      {exporting && (
+        <ExportModal settings={settings} duration={effectiveDuration} onClose={() => setExporting(false)} />
+      )}
     </div>
   )
 }
