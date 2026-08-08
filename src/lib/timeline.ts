@@ -1,7 +1,7 @@
 import type { Settings, TransitionStyle } from './types'
 
 export interface Phase {
-  kind: 'reveal' | 'hold' | 'trans'
+  kind: 'reveal' | 'hold' | 'trans' | 'console'
   /** the step index this phase resolves to (the step being revealed / held / arrived at) */
   step: number
   /** for 'trans': the step we are coming from */
@@ -33,6 +33,17 @@ export function resolveTransition(
 export function buildTimeline(settings: Settings): Timeline {
   const { steps, duration, stepHold, transitionDur, transition } = settings
   const phases: Phase[] = []
+  // only reserve console time when there's actual output to type out
+  const hasConsole = settings.console !== null && settings.console.trim() !== ''
+  const consoleDur = Math.max(0.1, settings.consoleDur)
+
+  if (settings.mode === 'sequence') {
+    phases.push({ kind: 'reveal', step: 0, dur: Math.max(0.1, duration) })
+    if (hasConsole) {
+      phases.push({ kind: 'console', step: 0, dur: consoleDur })
+    }
+    return { phases, total: phases.reduce((s, p) => s + p.dur, 0) || 1 }
+  }
 
   phases.push({ kind: 'reveal', step: 0, dur: Math.max(0.1, duration) })
   phases.push({ kind: 'hold', step: 0, dur: Math.max(0, stepHold) })
@@ -46,6 +57,11 @@ export function buildTimeline(settings: Settings): Timeline {
       style: resolveTransition(steps[i].transition, transition),
     })
     phases.push({ kind: 'hold', step: i, dur: Math.max(0, stepHold) })
+  }
+
+  // console types out after the final step has landed
+  if (hasConsole) {
+    phases.push({ kind: 'console', step: Math.max(0, steps.length - 1), dur: consoleDur })
   }
 
   const total = phases.reduce((s, p) => s + p.dur, 0) || 1

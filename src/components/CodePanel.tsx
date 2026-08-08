@@ -1,5 +1,5 @@
-import { ChevronLeft, ChevronRight, Code2, Copy, Layers, ListVideo, Plus, Trash2, Upload } from 'lucide-react'
 import { type ChangeEvent, useRef } from 'react'
+import { ChevronLeft, ChevronRight, Code2, Copy, Layers, ListVideo, Plus, Terminal, Trash2, X } from 'lucide-react'
 import type { InputMode, Language, Settings, Step, TransitionStyle } from '../lib/types'
 import { LANGUAGES, TRANSITIONS } from '../lib/types'
 import { SOURCE_FILE_ACCEPT } from '../lib/sourceFile'
@@ -117,6 +117,17 @@ export function CodePanel({
             options={LANGUAGES.map((l) => ({ value: l.id, label: l.label }))}
             onChange={(v) => onLanguage(v as Language)}
           />
+          {settings.console === null && (
+            <button
+              type="button"
+              onClick={() => update({ console: '' })}
+              title="Add an animated console section"
+              className="flex h-8 cursor-pointer items-center gap-1.5 rounded-md border border-white/10 px-2 text-[11px] font-medium text-zinc-400 transition-colors hover:border-accent-500/50 hover:bg-accent-500/10 hover:text-accent-300"
+            >
+              <Terminal className="h-3.5 w-3.5" />
+              Add Console
+            </button>
+          )}
         </div>
       </div>
 
@@ -228,15 +239,53 @@ export function CodePanel({
         </div>
       )}
 
-      <CodeEditor
-        className="min-h-0 flex-1"
-        value={settings.mode === 'steps' ? step?.code ?? '' : settings.code}
-        language={settings.language}
-        onChange={(v) =>
-          settings.mode === 'steps' ? updateStep(active, { code: v }) : update({ code: v })
-        }
-        placeholder="Paste your code here…"
-      />
+      <div className="flex min-h-0 flex-1 flex-col">
+        <CodeEditor
+          className="min-h-0 flex-1"
+          value={settings.mode === 'steps' ? step?.code ?? '' : settings.code}
+          language={settings.language}
+          onChange={(v) =>
+            settings.mode === 'steps' ? updateStep(active, { code: v }) : update({ code: v })
+          }
+          placeholder="Paste your code here…"
+        />
+        {settings.console !== null && (
+          <div className="flex min-h-0 basis-2/5 flex-col border-t border-white/10">
+            <div className="flex items-center justify-between px-4 py-2">
+              <div className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-wider text-emerald-400/80">
+                <Terminal className="h-3.5 w-3.5" />
+                Console
+              </div>
+              <button
+                type="button"
+                onClick={() => update({ console: null })}
+                title="Remove console section"
+                className="flex h-6 w-6 cursor-pointer items-center justify-center rounded text-zinc-500 transition-colors hover:bg-white/5 hover:text-zinc-200"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+            <div className="px-4 pb-1">
+              <Slider
+                label="Reveal time"
+                value={settings.consoleDur}
+                min={0.5}
+                max={8}
+                step={0.1}
+                unit="s"
+                onChange={(v) => update({ consoleDur: v })}
+              />
+            </div>
+            <CodeEditor
+              className="min-h-0 flex-1"
+              value={settings.console}
+              language="bash"
+              onChange={(v) => update({ console: v })}
+              placeholder="$ Add console output here…"
+            />
+          </div>
+        )}
+      </div>
 
       {/* steps mode: default transition + timing */}
       {settings.mode === 'steps' && (
