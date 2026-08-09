@@ -10,17 +10,20 @@ test.describe('Style panel', () => {
     await expectNoPageErrors(page)
   })
 
-  // the rendered code container carries the theme fg colour + font family inline
+  // the rendered code container carries the theme fg colour + font family inline.
+  // .first() skips the aria-hidden floor-reflection duplicate of the window.
   const codeBox = (page: import('@playwright/test').Page) =>
-    page.locator('main div[style*="perspective: 1400px"]')
+    page.locator('main div[style*="perspective: 1400px"]').first()
 
   test('window title renders in the preview and hides with chrome', async ({ page }) => {
     const main = page.getByRole('main')
+    // .first() skips the aria-hidden floor-reflection duplicate of the window
+    const title = main.getByText('hello.ts', { exact: true }).first()
     await page.getByPlaceholder('Window title…').fill('hello.ts')
-    await expect(main.getByText('hello.ts', { exact: true })).toBeVisible()
+    await expect(title).toBeVisible()
 
     await page.locator('label', { hasText: 'macOS chrome' }).getByRole('switch').click()
-    await expect(main.getByText('hello.ts', { exact: true })).toBeHidden()
+    await expect(title).toBeHidden()
   })
 
   test('line numbers toggle on and off in the preview', async ({ page }) => {

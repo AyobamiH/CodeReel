@@ -22,8 +22,9 @@ test.describe('Console section', () => {
     // second textarea is the console editor (first is the code editor)
     await page.locator('textarea').nth(1).fill('npm run build')
 
-    // the preview grows a console panel once there is output
-    await expect(page.getByRole('main').getByText('Console', { exact: true })).toBeVisible()
+    // the preview grows a console panel once there is output (.first() skips the
+    // aria-hidden floor-reflection duplicate of the window)
+    await expect(page.getByRole('main').getByText('Console', { exact: true }).first()).toBeVisible()
   })
 
   test('console status is selectable', async ({ page }) => {
