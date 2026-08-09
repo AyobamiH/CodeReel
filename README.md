@@ -10,6 +10,8 @@ the export flow is mocked.
 
 - ✅ prototype
 - ☑️ MVP + export in multiple formats
+- ☑️ authentication
+- ☑️ save projects
 - ☑️ payment with PayPal
 
 ## Run it
@@ -25,8 +27,10 @@ Before submitting changes, run:
 
 ```sh
 npm run lint
-npm test
+npm run test:unit
 npm run build
+```
+
 ## Test it
 
 The Playwright end-to-end suite covers critical user journeys in Chromium.

@@ -1,4 +1,4 @@
-name: Playwright Tests
+name: CI
 
 on:
   push:
@@ -8,10 +8,34 @@ on:
 
 # Cancel superseded runs on the same ref
 concurrency:
-  group: playwright-${{ github.ref }}
+  group: ci-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
+  checks:
+    name: Lint, unit tests & build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Unit tests
+        run: npm run test:unit
+
+      - name: Typecheck & build
+        run: npm run build
+
   test:
     name: Playwright (Chromium)
     runs-on: ubuntu-latest

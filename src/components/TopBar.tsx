@@ -31,6 +31,8 @@ function GitHubLink() {
         .then(setStarCount)
         .catch((error: unknown) => {
           if (error instanceof DOMException && error.name === 'AbortError') return
+          // Non-fatal: the repository link still works without the star count.
+          console.debug('CodeReel: could not load GitHub star count', error)
         })
     }
 

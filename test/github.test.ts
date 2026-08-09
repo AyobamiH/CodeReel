@@ -8,10 +8,7 @@ test('returns a valid GitHub star count', () => {
 })
 
 test('rejects NaN instead of allowing it into the UI', () => {
-  assert.throws(
-    () => parseGitHubStarCount({ stargazers_count: Number.NaN }),
-    /invalid star count/,
-  )
+  assert.throws(() => parseGitHubStarCount({ stargazers_count: Number.NaN }), /invalid star count/)
 })
 
 test('rejects missing and otherwise invalid star counts', () => {
