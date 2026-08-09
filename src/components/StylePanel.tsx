@@ -68,7 +68,9 @@ export function StylePanel({
                   <span className="h-2 w-4 rounded-full opacity-40" style={{ background: t.fg }} />
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className={`text-[11.5px] ${active ? 'text-white' : 'text-zinc-400'}`}>{t.name}</span>
+                  <span className={`text-[11.5px] ${active ? 'text-white' : 'text-zinc-400'}`}>
+                    {t.name}
+                  </span>
                   {active && <Check className="h-3 w-3 text-accent-400" />}
                 </div>
               </button>

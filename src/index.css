@@ -190,12 +190,7 @@ input[type='range']::-moz-range-thumb {
   }
 }
 .shimmer {
-  background: linear-gradient(
-    100deg,
-    #6366f1 30%,
-    #c084fc 45%,
-    #6366f1 60%
-  );
+  background: linear-gradient(100deg, #6366f1 30%, #c084fc 45%, #6366f1 60%);
   background-size: 200% 100%;
   animation: shimmer 1.6s linear infinite;
 }

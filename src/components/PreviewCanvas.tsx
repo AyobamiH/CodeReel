@@ -11,11 +11,25 @@ const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3)
 const easeInOutCubic = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2)
 const clamp01 = (t: number) => Math.min(1, Math.max(0, t))
 
-function TokenSpans({ tokens, colors, fg }: { tokens: Token[]; colors: Record<string, string | undefined>; fg: string }) {
+function TokenSpans({
+  tokens,
+  colors,
+  fg,
+}: {
+  tokens: Token[]
+  colors: Record<string, string | undefined>
+  fg: string
+}) {
   return (
     <>
       {tokens.map((tok, i) => (
-        <span key={i} style={{ color: colors[tok.t] ?? fg, fontStyle: tok.t === 'comment' ? 'italic' : undefined }}>
+        <span
+          key={i}
+          style={{
+            color: colors[tok.t] ?? fg,
+            fontStyle: tok.t === 'comment' ? 'italic' : undefined,
+          }}
+        >
           {tok.s}
         </span>
       ))}
@@ -154,11 +168,21 @@ function revealRows(
           caret={
             <>
               {active && (
-                <span className={playing ? '' : 'caret-blink'} style={{ color: ctx.caretColor, marginLeft: 1 }}>
+                <span
+                  className={playing ? '' : 'caret-blink'}
+                  style={{ color: ctx.caretColor, marginLeft: 1 }}
+                >
                   ▍
                 </span>
               )}
-              {!done && <span className="invisible">{line.map((t) => t.s).join('').slice(chars)}</span>}
+              {!done && (
+                <span className="invisible">
+                  {line
+                    .map((t) => t.s)
+                    .join('')
+                    .slice(chars)}
+                </span>
+              )}
             </>
           }
         />
@@ -179,7 +203,18 @@ function revealRows(
     const tz = animation === 'flip' ? rest * -60 : 0
     const blur = animation === 'flip' ? rest * 2.5 : 0
     return (
-      <CodeRow key={i} ctx={ctx} idx={i} tokens={line} opacity={t} tx={tx} ty={ty} tz={tz} rotX={rotX} blur={blur} />
+      <CodeRow
+        key={i}
+        ctx={ctx}
+        idx={i}
+        tokens={line}
+        opacity={t}
+        tx={tx}
+        ty={ty}
+        tz={tz}
+        rotX={rotX}
+        blur={blur}
+      />
     )
   })
 }
@@ -221,9 +256,18 @@ function diffRows(nextLines: Token[][], status: LineStatus[], t: number, ctx: Ro
 }
 
 /** Typewriter transition: inserted lines type in at their insertion point. */
-function typeInRows(nextLines: Token[][], status: LineStatus[], t: number, playing: boolean, ctx: RowCtx): ReactNode[] {
+function typeInRows(
+  nextLines: Token[][],
+  status: LineStatus[],
+  t: number,
+  playing: boolean,
+  ctx: RowCtx,
+): ReactNode[] {
   const added = addedIndices(status)
-  const totalChars = Math.max(1, added.reduce((s, i) => s + lineLength(nextLines[i]), 0))
+  const totalChars = Math.max(
+    1,
+    added.reduce((s, i) => s + lineLength(nextLines[i]), 0),
+  )
   const revealChars = Math.floor(t * totalChars)
   const typed = new Map<number, number>()
   let consumed = 0
@@ -252,11 +296,21 @@ function typeInRows(nextLines: Token[][], status: LineStatus[], t: number, playi
         caret={
           <>
             {active && (
-              <span className={playing ? '' : 'caret-blink'} style={{ color: ctx.caretColor, marginLeft: 1 }}>
+              <span
+                className={playing ? '' : 'caret-blink'}
+                style={{ color: ctx.caretColor, marginLeft: 1 }}
+              >
                 ▍
               </span>
             )}
-            {t < 1 && <span className="invisible">{line.map((tok) => tok.s).join('').slice(c)}</span>}
+            {t < 1 && (
+              <span className="invisible">
+                {line
+                  .map((tok) => tok.s)
+                  .join('')
+                  .slice(c)}
+              </span>
+            )}
           </>
         }
       />
@@ -264,7 +318,12 @@ function typeInRows(nextLines: Token[][], status: LineStatus[], t: number, playi
   })
 }
 
-function revealConsoleRows(lines: Token[][], revealT: number, playing: boolean, ctx: RowCtx): ReactNode[] {
+function revealConsoleRows(
+  lines: Token[][],
+  revealT: number,
+  playing: boolean,
+  ctx: RowCtx,
+): ReactNode[] {
   const { done, cells } = typewriterReveal(lines, revealT)
   return lines.map((line, i) => {
     const { chars, active } = cells[i]
@@ -274,11 +333,21 @@ function revealConsoleRows(lines: Token[][], revealT: number, playing: boolean, 
         <span>
           <TokenSpans tokens={sliceLine(line, chars)} colors={ctx.colors} fg={ctx.fg} />
           {active && (
-            <span className={playing ? '' : 'caret-blink'} style={{ color: ctx.caretColor, marginLeft: 1 }}>
+            <span
+              className={playing ? '' : 'caret-blink'}
+              style={{ color: ctx.caretColor, marginLeft: 1 }}
+            >
               ▍
             </span>
           )}
-          {!done && <span className="invisible">{line.map((tok) => tok.s).join('').slice(chars)}</span>}
+          {!done && (
+            <span className="invisible">
+              {line
+                .map((tok) => tok.s)
+                .join('')
+                .slice(chars)}
+            </span>
+          )}
         </span>
       </div>
     )
@@ -296,10 +365,13 @@ export function PreviewCanvas({
 }) {
   const theme = THEMES.find((t) => t.id === settings.themeId) ?? THEMES[0]
   const background =
-    settings.customBg ?? (BACKGROUNDS.find((b) => b.id === settings.backgroundId) ?? BACKGROUNDS[0]).css
+    settings.customBg ??
+    (BACKGROUNDS.find((b) => b.id === settings.backgroundId) ?? BACKGROUNDS[0]).css
   const font = FONTS.find((f) => f.id === settings.fontId) ?? FONTS[0]
   const aspect = ASPECTS.find((a) => a.id === settings.aspect) ?? ASPECTS[0]
-  const consoleDot = (CONSOLE_STATUSES.find((s) => s.id === settings.consoleStatus) ?? CONSOLE_STATUSES[0]).dot
+  const consoleDot = (
+    CONSOLE_STATUSES.find((s) => s.id === settings.consoleStatus) ?? CONSOLE_STATUSES[0]
+  ).dot
 
   const isSteps = settings.mode === 'steps' && settings.steps.length > 0
   const lineHeightPx = settings.fontSize * 1.65
@@ -334,9 +406,7 @@ export function PreviewCanvas({
   const timeline = useMemo(() => buildTimeline(settings), [settings])
 
   // reserve height for the tallest snapshot so the window never jumps between steps
-  const maxLines = isSteps
-    ? Math.max(1, ...stepLines.map((l) => l.length))
-    : seqLines.length
+  const maxLines = isSteps ? Math.max(1, ...stepLines.map((l) => l.length)) : seqLines.length
   const codeMinHeight = maxLines * lineHeightPx
 
   // resolve the active phase once — it drives both the code frame and the console
@@ -362,7 +432,10 @@ export function PreviewCanvas({
     if (style === 'crossfade') {
       codeRows = (
         <div className="relative">
-          <div className="pointer-events-none absolute inset-0" style={{ opacity: 1 - easeOutCubic(localT) }}>
+          <div
+            className="pointer-events-none absolute inset-0"
+            style={{ opacity: 1 - easeOutCubic(localT) }}
+          >
             {fullRows(prevLines, ctx)}
           </div>
           <div style={{ opacity: easeOutCubic(localT) }}>{fullRows(nextLines, ctx)}</div>
@@ -399,7 +472,10 @@ export function PreviewCanvas({
         </div>
       )
     } else {
-      const status = diffLineStatus(settings.steps[phase.from ?? 0].code, settings.steps[phase.step].code)
+      const status = diffLineStatus(
+        settings.steps[phase.from ?? 0].code,
+        settings.steps[phase.step].code,
+      )
       codeRows =
         style === 'typewriter'
           ? typeInRows(nextLines, status, localT, playing, ctx)
@@ -421,11 +497,17 @@ export function PreviewCanvas({
             transition: 'opacity 180ms ease, transform 180ms ease',
           }}
         >
-          <div className="flex items-center gap-2 border-b border-white/10 px-3 py-2 text-[10px] font-medium uppercase tracking-[0.16em]" style={{ color: theme.lineNumber }}>
+          <div
+            className="flex items-center gap-2 border-b border-white/10 px-3 py-2 text-[10px] font-medium uppercase tracking-[0.16em]"
+            style={{ color: theme.lineNumber }}
+          >
             <span className="h-2 w-2 rounded-full" style={{ background: consoleDot }} />
             Console
           </div>
-          <div className="px-3 py-3" style={{ minHeight: lineHeightPx * Math.max(1, consoleLines.length) + 24 }}>
+          <div
+            className="px-3 py-3"
+            style={{ minHeight: lineHeightPx * Math.max(1, consoleLines.length) + 24 }}
+          >
             {revealConsoleRows(consoleLines, phase.kind === 'console' ? localT : 0, playing, ctx)}
           </div>
         </div>
@@ -465,16 +547,26 @@ export function PreviewCanvas({
     : undefined
 
   return (
-    <div ref={stageRef} className="stage-grid relative flex min-h-0 flex-1 items-center justify-center overflow-hidden">
+    <div
+      ref={stageRef}
+      className="stage-grid relative flex min-h-0 flex-1 items-center justify-center overflow-hidden"
+    >
       {canvasW > 40 && (
         <div
           className={`relative flex items-center justify-center overflow-hidden rounded-xl ring-1 ring-white/10 ${isTransparent ? 'checkerboard' : ''}`}
-          style={{ width: canvasW, height: canvasH, background: isTransparent ? undefined : background }}
+          style={{
+            width: canvasW,
+            height: canvasH,
+            background: isTransparent ? undefined : background,
+          }}
         >
           {!isTransparent && (
             <div
               className="pointer-events-none absolute inset-0"
-              style={{ background: 'radial-gradient(120% 90% at 50% 40%, transparent 55%, rgba(0,0,0,0.18))' }}
+              style={{
+                background:
+                  'radial-gradient(120% 90% at 50% 40%, transparent 55%, rgba(0,0,0,0.18))',
+              }}
             />
           )}
 
@@ -492,7 +584,10 @@ export function PreviewCanvas({
               }}
             >
               {settings.chrome && (
-                <div className="relative flex h-9 items-center px-3.5" style={{ background: theme.chromeBg }}>
+                <div
+                  className="relative flex h-9 items-center px-3.5"
+                  style={{ background: theme.chromeBg }}
+                >
                   <div className="flex items-center gap-[7px]">
                     <span className="h-3 w-3 rounded-full bg-[#ff5f57]" />
                     <span className="h-3 w-3 rounded-full bg-[#febc2e]" />

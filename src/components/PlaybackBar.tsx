@@ -42,14 +42,19 @@ export function PlaybackBar({
     <div className="border-t border-white/5 bg-ink-900 px-5 pt-3 pb-4">
       {/* timeline */}
       <div className="flex items-center gap-3">
-        <span className="w-10 text-right font-mono text-[11px] text-zinc-500 tabular-nums">{fmt(current)}</span>
+        <span className="w-10 text-right font-mono text-[11px] text-zinc-500 tabular-nums">
+          {fmt(current)}
+        </span>
         <div className="relative flex-1">
           <input
             type="range"
             min={0}
             max={1000}
             value={Math.round(playback.progress * 1000)}
-            style={{ ['--fill' as string]: `${playback.progress * 100}%`, ['--track-h' as string]: '6px' }}
+            style={{
+              ['--fill' as string]: `${playback.progress * 100}%`,
+              ['--track-h' as string]: '6px',
+            }}
             className="w-full"
             onPointerDown={playback.beginScrub}
             onPointerUp={playback.endScrub}
@@ -72,13 +77,16 @@ export function PlaybackBar({
               )
             })}
         </div>
-        <span className="w-10 font-mono text-[11px] text-zinc-500 tabular-nums">{fmt(totalDuration)}</span>
+        <span className="w-10 font-mono text-[11px] text-zinc-500 tabular-nums">
+          {fmt(totalDuration)}
+        </span>
       </div>
 
       {/* active step caption */}
       {isSteps && settings.steps[stepNow]?.title && (
         <div className="mt-1.5 text-center text-[12px] text-zinc-400">
-          <span className="font-mono text-zinc-600">{stepNow + 1}.</span> {settings.steps[stepNow].title}
+          <span className="font-mono text-zinc-600">{stepNow + 1}.</span>{' '}
+          {settings.steps[stepNow].title}
         </div>
       )}
 
@@ -208,7 +216,9 @@ export function PlaybackBar({
             />
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-[11px] font-medium tracking-wide text-zinc-500 uppercase">Speed</span>
+            <span className="text-[11px] font-medium tracking-wide text-zinc-500 uppercase">
+              Speed
+            </span>
             <Segmented<string>
               size="sm"
               value={String(settings.speed)}

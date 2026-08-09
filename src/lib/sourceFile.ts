@@ -36,12 +36,11 @@ export interface UploadedSourceFile {
 }
 
 export type SourceFileResult =
-  | { kind: 'success'; file: UploadedSourceFile }
-  | { kind: 'error'; message: string }
+  { kind: 'success'; file: UploadedSourceFile } | { kind: 'error'; message: string }
 
 export function detectSourceLanguage(filename: string): Language | null {
   const extension = filename.split('.').pop()?.toLowerCase()
-  return extension ? LANGUAGE_BY_EXTENSION[extension] ?? null : null
+  return extension ? (LANGUAGE_BY_EXTENSION[extension] ?? null) : null
 }
 
 export async function readSourceFile(file: File): Promise<SourceFileResult> {
@@ -71,7 +70,9 @@ export function sourceFilePatch(
   if (input.mode === 'steps') {
     return {
       ...languagePatch,
-      steps: input.steps.map((step, index) => (index === input.activeStep ? { ...step, code: file.code } : step)),
+      steps: input.steps.map((step, index) =>
+        index === input.activeStep ? { ...step, code: file.code } : step,
+      ),
     }
   }
 

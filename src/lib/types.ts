@@ -1,13 +1,5 @@
 export type Language =
-  | 'javascript'
-  | 'typescript'
-  | 'python'
-  | 'rust'
-  | 'go'
-  | 'css'
-  | 'html'
-  | 'json'
-  | 'bash'
+  'javascript' | 'typescript' | 'python' | 'rust' | 'go' | 'css' | 'html' | 'json' | 'bash'
 
 export const LANGUAGES: { id: Language; label: string }[] = [
   { id: 'typescript', label: 'TypeScript' },

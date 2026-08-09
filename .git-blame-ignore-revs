@@ -1,0 +1,4 @@
+# Bulk Prettier formatting — no logic changes.
+# Configure locally with: git config blame.ignoreRevsFile .git-blame-ignore-revs
+# (GitHub applies this file automatically.)
+c225259b0dec59b6d91339f572665af568879fb4

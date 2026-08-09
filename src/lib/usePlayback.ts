@@ -117,7 +117,10 @@ export function usePlayback(duration: number, speed: number, loop: boolean): Pla
 }
 
 /** Observe an element's layout size. Callback ref so it works with conditionally-mounted elements. */
-export function useElementSize<T extends HTMLElement>(): [(el: T | null) => void, { w: number; h: number }] {
+export function useElementSize<T extends HTMLElement>(): [
+  (el: T | null) => void,
+  { w: number; h: number },
+] {
   const [el, setEl] = useState<T | null>(null)
   const [size, setSize] = useState({ w: 0, h: 0 })
   useEffect(() => {

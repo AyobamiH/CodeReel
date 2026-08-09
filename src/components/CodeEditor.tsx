@@ -24,7 +24,8 @@ const PANEL_COLORS: Partial<Record<TokenType, string>> = {
 const FG = '#cdd2e0'
 
 // Identical box/wrap metrics on both layers so the caret tracks the colors.
-const LAYER = 'm-0 border-0 p-4 font-mono text-[12.5px] leading-relaxed whitespace-pre-wrap break-keep break-words'
+const LAYER =
+  'm-0 border-0 p-4 font-mono text-[12.5px] leading-relaxed whitespace-pre-wrap break-keep break-words'
 
 export function CodeEditor({
   value,

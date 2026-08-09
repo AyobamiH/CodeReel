@@ -33,17 +33,17 @@ Existing effects (tilt, flip reveal, `flip3d`, diff, typewriter) all follow this
 
 ## Architecture map (where things live)
 
-| File | Role |
-|------|------|
+| File                               | Role                                                                                                          |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------- |
 | `src/components/PreviewCanvas.tsx` | **The renderer.** Pure function of `settings` + `progress` + `playing`. All reveals/transitions/3D live here. |
-| `src/lib/timeline.ts` | Builds the stepped-mode timeline (`buildTimeline`) and maps `progress → phase` (`locate`). Pure. |
-| `src/lib/usePlayback.ts` | The wall-clock (rAF) that produces `progress`. **This is the swap point for export** (see below). |
-| `src/lib/types.ts` | `Settings` shape + option lists (`AnimationStyle`, `TransitionStyle`, `ASPECTS`, `FONTS`). |
-| `src/lib/themes.ts` | Code themes + background gradients. |
-| `src/components/StylePanel.tsx` | Right-hand controls (theme, background, window, 3D pad, typography). |
-| `src/components/PlaybackBar.tsx` | Transport + Motion selector. |
-| `src/components/CodePanel.tsx` | Code input, steps, transition selectors. |
-| `src/components/ExportModal.tsx` | **Currently a mock** — progress bar only, "encoder isn't wired up yet." |
+| `src/lib/timeline.ts`              | Builds the stepped-mode timeline (`buildTimeline`) and maps `progress → phase` (`locate`). Pure.              |
+| `src/lib/usePlayback.ts`           | The wall-clock (rAF) that produces `progress`. **This is the swap point for export** (see below).             |
+| `src/lib/types.ts`                 | `Settings` shape + option lists (`AnimationStyle`, `TransitionStyle`, `ASPECTS`, `FONTS`).                    |
+| `src/lib/themes.ts`                | Code themes + background gradients.                                                                           |
+| `src/components/StylePanel.tsx`    | Right-hand controls (theme, background, window, 3D pad, typography).                                          |
+| `src/components/PlaybackBar.tsx`   | Transport + Motion selector.                                                                                  |
+| `src/components/CodePanel.tsx`     | Code input, steps, transition selectors.                                                                      |
+| `src/components/ExportModal.tsx`   | **Currently a mock** — progress bar only, "encoder isn't wired up yet."                                       |
 
 ---
 
@@ -51,13 +51,13 @@ Existing effects (tilt, flip reveal, `flip3d`, diff, typewriter) all follow this
 
 ### Tier 1 — CSS 3D (fits the current architecture directly)
 
-| # | Effect | Status |
-|---|--------|--------|
-| 1 | **Hero-card tilt** — `perspective` on the stage wrapper + `rotateX/rotateY` on the window; 8-direction pad + amount slider (Style → 3D) | ✅ Done — commits `ecce5fb`, `3556bbb` |
-| 2 | **3D flip-up line reveal** — each line hinges down from its top edge, rises from depth, settling blur ("3D" motion) | ✅ Done — `ecce5fb` |
-| 4 | **`flip3d` step transition** — card-flip between snapshots, edge-on swap at the midpoint ("Flip 3D" transition) | ✅ Done — `ecce5fb` |
-| 3 | **Depth-of-field reveal** — non-active lines sit back in Z + blur | ◻️ Partial — blur is folded into the flip reveal; no standalone/typewriter DoF. Optional. |
-| 5 | **Parallax backdrop** — background gradient / dot-grid / window drift at different rates for scene depth | ❌ Not started (the one real remaining Tier 1 piece) |
+| #   | Effect                                                                                                                                  | Status                                                                                    |
+| --- | --------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| 1   | **Hero-card tilt** — `perspective` on the stage wrapper + `rotateX/rotateY` on the window; 8-direction pad + amount slider (Style → 3D) | ✅ Done — commits `ecce5fb`, `3556bbb`                                                    |
+| 2   | **3D flip-up line reveal** — each line hinges down from its top edge, rises from depth, settling blur ("3D" motion)                     | ✅ Done — `ecce5fb`                                                                       |
+| 4   | **`flip3d` step transition** — card-flip between snapshots, edge-on swap at the midpoint ("Flip 3D" transition)                         | ✅ Done — `ecce5fb`                                                                       |
+| 3   | **Depth-of-field reveal** — non-active lines sit back in Z + blur                                                                       | ◻️ Partial — blur is folded into the flip reveal; no standalone/typewriter DoF. Optional. |
+| 5   | **Parallax backdrop** — background gradient / dot-grid / window drift at different rates for scene depth                                | ❌ Not started (the one real remaining Tier 1 piece)                                      |
 
 Implementation notes: `CodeRow` carries `tz` / `rotX` / `blur` depth channels.
 The code container and the `flip3d` transition each establish their own
@@ -119,10 +119,11 @@ not use it. Playwright/Puppeteer screenshot-per-frame also works since it's real
 Chromium.)
 
 **Current export debt: none in rendered frames.** The only wall-clock bits are
-the caret blink (only applies when *paused* — `playing ? '' : 'caret-blink'`) and
+the caret blink (only applies when _paused_ — `playing ? '' : 'caret-blink'`) and
 the export-modal shimmer (UI chrome, never in a frame).
 
 **Known "later" wrinkles (minor, solvable):**
+
 - The auto-fit `scale()` uses `useElementSize` (ResizeObserver). A headless
   single-frame render may need a deterministic scale value or Remotion's
   `delayRender`/`continueRender` to let layout settle.
