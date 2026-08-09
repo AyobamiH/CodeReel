@@ -545,36 +545,31 @@ export function PreviewCanvas({
     }
   }
 
-  // the console section rides below the code in both modes, typing out on its phase
-  const rows = (
-    <>
-      <div style={{ minHeight: codeMinHeight }}>{codeRows}</div>
-      {settings.console.trim() !== '' && (
-        <div
-          className="mt-5 overflow-hidden rounded-lg border border-white/10"
-          style={{
-            background: 'rgba(0,0,0,0.2)',
-            opacity: phase.kind === 'console' ? 1 : 0,
-            transform: phase.kind === 'console' ? undefined : 'translateY(10px)',
-            transition: 'opacity 180ms ease, transform 180ms ease',
-          }}
-        >
-          <div
-            className="flex items-center gap-2 border-b border-white/10 px-3 py-2 text-[10px] font-medium uppercase tracking-[0.16em]"
-            style={{ color: theme.lineNumber }}
-          >
-            <span className="h-2 w-2 rounded-full" style={{ background: consoleDot }} />
-            Console
-          </div>
-          <div
-            className="px-3 py-3"
-            style={{ minHeight: lineHeightPx * Math.max(1, consoleLines.length) + 24 }}
-          >
-            {revealConsoleRows(consoleLines, phase.kind === 'console' ? localT : 0, playing, ctx)}
-          </div>
-        </div>
-      )}
-    </>
+  // the console section rides below the code, typing out on its phase (shared by window + reflection)
+  const consoleSection = settings.console.trim() !== '' && (
+    <div
+      className="mt-5 overflow-hidden rounded-lg border border-white/10"
+      style={{
+        background: 'rgba(0,0,0,0.2)',
+        opacity: phase.kind === 'console' ? 1 : 0,
+        transform: phase.kind === 'console' ? undefined : 'translateY(10px)',
+        transition: 'opacity 180ms ease, transform 180ms ease',
+      }}
+    >
+      <div
+        className="flex items-center gap-2 border-b border-white/10 px-3 py-2 text-[10px] font-medium uppercase tracking-[0.16em]"
+        style={{ color: theme.lineNumber }}
+      >
+        <span className="h-2 w-2 rounded-full" style={{ background: consoleDot }} />
+        Console
+      </div>
+      <div
+        className="px-3 py-3"
+        style={{ minHeight: lineHeightPx * Math.max(1, consoleLines.length) + 24 }}
+      >
+        {revealConsoleRows(consoleLines, phase.kind === 'console' ? localT : 0, playing, ctx)}
+      </div>
+    </div>
   )
 
   // stage → canvas sizing
@@ -591,6 +586,8 @@ export function PreviewCanvas({
 
   // window auto-fit: measure natural size, scale down to fit inside padding
   const [windowRef, win] = useElementSize<HTMLDivElement>()
+  // reflection is content-fitted; measure it so we can anchor it under the visible code
+  const [reflRef, refl] = useElementSize<HTMLDivElement>()
   const innerW = Math.max(0, canvasW - settings.padding * 2)
   const innerH = Math.max(0, canvasH - settings.padding * 2)
   const scale = win.w > 0 && win.h > 0 ? Math.min(1, innerW / win.w, innerH / win.h) : 1
@@ -631,19 +628,76 @@ export function PreviewCanvas({
   const winX = Math.sin(pPhase) * -9 * pAmt // window counter-floats against the backdrop
   const winY = Math.cos(pPhase) * -6 * pAmt
 
-  // floor reflection: a mirrored, faded copy of the window. -webkit-box-reflect mirrors the
-  // actual painted element, so it tracks the reveal + tilt live and is static per frame (export-safe).
-  const reflectAlpha = ((settings.reflection / 100) * 0.55).toFixed(3)
-  const boxReflect =
-    settings.reflection > 0
-      ? `below 2px linear-gradient(transparent 34%, rgba(0,0,0,${reflectAlpha}))`
-      : undefined
+  // floor reflection: an explicit, content-fitted mirror of the window rendered just below it, so it
+  // hugs the visible code instead of the reserved full-height box (which left a floating gap for
+  // short steps and early reveals). Strength ramps with how full the frame is — localT² during the
+  // reveal phase, 1 during hold / trans / console. Deterministic; pure function of phase/localT.
+  const reflectOn = settings.reflection > 0
+  const reflectFill = phase.kind === 'reveal' ? localT * localT : 1
+  const reflectAlpha = ((settings.reflection / 100) * 0.6 * reflectFill).toFixed(3)
+  const reflectMask = `linear-gradient(to bottom, transparent 42%, rgba(0,0,0,${reflectAlpha}))`
 
   // light-sweep: a soft sheen that passes once across the code as it reveals (reveal phase only).
   // Position is tied to the reveal's localT, so it's deterministic and gone by the time it settles.
   const sweepOn = settings.sweep > 0 && phase.kind === 'reveal' && localT < 1
   const sweepLeft = (-45 + localT * 145).toFixed(1)
   const sweepAlpha = ((settings.sweep / 100) * 0.18).toFixed(3)
+
+  // window inner: chrome + code + console. `reserve` keeps the code block at the tallest-snapshot
+  // height so the card never resizes; the reflection renders the same content content-fitted.
+  const renderInner = (reserve: boolean) => (
+    <>
+      {settings.chrome && (
+        <div
+          className="relative flex h-9 items-center px-3.5"
+          style={{ background: theme.chromeBg }}
+        >
+          <div className="flex items-center gap-[7px]">
+            <span className="h-3 w-3 rounded-full bg-[#ff5f57]" />
+            <span className="h-3 w-3 rounded-full bg-[#febc2e]" />
+            <span className="h-3 w-3 rounded-full bg-[#28c840]" />
+          </div>
+          {settings.windowTitle && (
+            <span
+              className="absolute inset-x-16 text-center text-[12px] font-medium tracking-wide"
+              style={{ color: theme.fg, opacity: 0.45 }}
+            >
+              {settings.windowTitle}
+            </span>
+          )}
+        </div>
+      )}
+      <div
+        className="relative px-5 py-4"
+        style={{
+          fontFamily: font.stack,
+          fontSize: settings.fontSize,
+          lineHeight: `${lineHeightPx}px`,
+          color: theme.fg,
+          minHeight: reserve ? codeMinHeight : undefined,
+          perspective: '1400px',
+        }}
+      >
+        <div style={{ minHeight: reserve ? codeMinHeight : undefined }}>{codeRows}</div>
+        {consoleSection}
+        {reserve && sweepOn && (
+          <div className="pointer-events-none absolute inset-0 overflow-hidden">
+            <div
+              style={{
+                position: 'absolute',
+                top: 0,
+                bottom: 0,
+                width: '45%',
+                left: `${sweepLeft}%`,
+                background: `linear-gradient(100deg, transparent, rgba(255,255,255,${sweepAlpha}) 50%, transparent)`,
+                transform: 'skewX(-14deg)',
+              }}
+            />
+          </div>
+        )}
+      </div>
+    </>
+  )
 
   return (
     <div
@@ -699,67 +753,42 @@ export function PreviewCanvas({
             }}
           >
             <div
-              ref={windowRef}
-              className="overflow-hidden"
-              style={{
-                background: theme.bg,
-                borderRadius: settings.radius,
-                boxShadow,
-                border: '1px solid rgba(255,255,255,0.08)',
-                transform: windowTilt,
-                transformOrigin: 'center center',
-                WebkitBoxReflect: boxReflect,
-              }}
+              className="relative"
+              style={{ transform: windowTilt, transformOrigin: 'center center' }}
             >
-              {settings.chrome && (
-                <div
-                  className="relative flex h-9 items-center px-3.5"
-                  style={{ background: theme.chromeBg }}
-                >
-                  <div className="flex items-center gap-[7px]">
-                    <span className="h-3 w-3 rounded-full bg-[#ff5f57]" />
-                    <span className="h-3 w-3 rounded-full bg-[#febc2e]" />
-                    <span className="h-3 w-3 rounded-full bg-[#28c840]" />
-                  </div>
-                  {settings.windowTitle && (
-                    <span
-                      className="absolute inset-x-16 text-center text-[12px] font-medium tracking-wide"
-                      style={{ color: theme.fg, opacity: 0.45 }}
-                    >
-                      {settings.windowTitle}
-                    </span>
-                  )}
-                </div>
-              )}
-
               <div
-                className="relative px-5 py-4"
+                ref={windowRef}
+                className="overflow-hidden"
                 style={{
-                  fontFamily: font.stack,
-                  fontSize: settings.fontSize,
-                  lineHeight: `${lineHeightPx}px`,
-                  color: theme.fg,
-                  minHeight: codeMinHeight,
-                  perspective: '1400px',
+                  background: theme.bg,
+                  borderRadius: settings.radius,
+                  boxShadow,
+                  border: '1px solid rgba(255,255,255,0.08)',
                 }}
               >
-                {rows}
-                {sweepOn && (
-                  <div className="pointer-events-none absolute inset-0 overflow-hidden">
-                    <div
-                      style={{
-                        position: 'absolute',
-                        top: 0,
-                        bottom: 0,
-                        width: '45%',
-                        left: `${sweepLeft}%`,
-                        background: `linear-gradient(100deg, transparent, rgba(255,255,255,${sweepAlpha}) 50%, transparent)`,
-                        transform: 'skewX(-14deg)',
-                      }}
-                    />
-                  </div>
-                )}
+                {renderInner(true)}
               </div>
+              {reflectOn && (
+                <div
+                  ref={reflRef}
+                  aria-hidden
+                  className="pointer-events-none overflow-hidden"
+                  style={{
+                    position: 'absolute',
+                    top: refl.h,
+                    left: 0,
+                    right: 0,
+                    background: theme.bg,
+                    borderRadius: settings.radius,
+                    transform: 'scaleY(-1)',
+                    WebkitMaskImage: reflectMask,
+                    maskImage: reflectMask,
+                    visibility: refl.h > 0 ? 'visible' : 'hidden',
+                  }}
+                >
+                  {renderInner(false)}
+                </div>
+              )}
             </div>
           </div>
         </div>
