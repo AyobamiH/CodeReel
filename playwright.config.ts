@@ -17,7 +17,9 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
+      // CodeReel is a desktop tool: two side panels (~620px) flank the preview,
+      // so a roomy viewport keeps the playback controls out from under them.
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1600, height: 900 } },
     },
   ],
   webServer: {
