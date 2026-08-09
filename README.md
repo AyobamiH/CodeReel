@@ -21,6 +21,16 @@ npm install
 npm run dev
 ```
 
+## Checks
+
+Before submitting changes, run:
+
+```sh
+npm run lint
+npm run test:unit
+npm run build
+```
+
 ## Test it
 
 The Playwright end-to-end suite covers critical user journeys in Chromium.
