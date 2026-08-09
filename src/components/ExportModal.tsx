@@ -14,15 +14,23 @@ const PHASE_LABEL: Record<Phase, string> = {
   done: 'Export complete',
 }
 
-export function ExportModal({ settings, onClose }: { settings: Settings; onClose: () => void }) {
+export function ExportModal({
+  settings,
+  duration,
+  onClose,
+}: {
+  settings: Settings
+  duration: number
+  onClose: () => void
+}) {
   const [pct, setPct] = useState(0)
   const [note, setNote] = useState(false)
 
-  const totalFrames = Math.round(settings.duration * FPS)
+  const totalFrames = Math.round(duration * FPS)
   const aspect = ASPECTS.find((a) => a.id === settings.aspect) ?? ASPECTS[0]
   const ext = settings.format
   const fileName = `codereel-${settings.aspect.replace(':', 'x')}.${ext}`
-  const sizeMB = (settings.duration * (ext === 'gif' ? 1.9 : ext === 'webm' ? 0.5 : 0.65)).toFixed(1)
+  const sizeMB = (duration * (ext === 'gif' ? 1.9 : ext === 'webm' ? 0.5 : 0.65)).toFixed(1)
 
   useEffect(() => {
     // time-based so browser timer throttling can't stall it:
@@ -78,7 +86,9 @@ export function ExportModal({ settings, onClose }: { settings: Settings; onClose
                 {done ? 'Export complete' : `Exporting ${ext.toUpperCase()}`}
               </h2>
               <p className="text-[12px] text-zinc-500">
-                {done ? fileName : `${PHASE_LABEL[phase]}${phase === 'encode' ? ` ${ext.toUpperCase()}` : ''}…`}
+                {done
+                  ? fileName
+                  : `${PHASE_LABEL[phase]}${phase === 'encode' ? ` ${ext.toUpperCase()}` : ''}…`}
               </p>
             </div>
           </div>
@@ -114,10 +124,13 @@ export function ExportModal({ settings, onClose }: { settings: Settings; onClose
           {[
             ['Resolution', aspect.res],
             ['Frame rate', `${FPS} fps`],
-            ['Duration', `${settings.duration}s`],
+            ['Duration', `${duration.toFixed(1)}s`],
             ['Est. size', `${sizeMB} MB`],
           ].map(([k, v]) => (
-            <div key={k} className="rounded-lg bg-white/[0.04] px-2 py-2 text-center ring-1 ring-white/5">
+            <div
+              key={k}
+              className="rounded-lg bg-white/[0.04] px-2 py-2 text-center ring-1 ring-white/5"
+            >
               <div className="text-[10px] text-zinc-500">{k}</div>
               <div className="mt-0.5 font-mono text-[11.5px] text-zinc-200">{v}</div>
             </div>

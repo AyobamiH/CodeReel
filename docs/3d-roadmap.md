@@ -1,0 +1,142 @@
+# CodeReel — 3D Effects Roadmap & Export Strategy
+
+Working notes for making the code-animation preview "more 3D and cool," and how
+the (future) video export fits in. Read this before adding new visual effects.
+
+---
+
+## The one rule that makes everything work
+
+**Every visual effect must be a pure function of `progress` (the 0→1 clock).
+No wall-clock time in anything that appears in a rendered frame.**
+
+`PreviewCanvas` already works this way: it takes `progress` as a prop and renders
+the frame from it. It never reads a clock itself — `usePlayback` owns the
+wall-clock and just feeds `progress` in. That single seam is what lets the same
+rendering code drive both the live preview **and** a future video export with no
+rework.
+
+Concretely, for anything drawn into a frame, **do not use**:
+
+- CSS `@keyframes`, `animation:`, or `transition:`
+- `requestAnimationFrame` loops, `setInterval`, `Date.now()`, `performance.now()`
+- unseeded `Math.random()`
+
+Instead derive motion from `progress` / `localT`, e.g. `offset = progress * k`.
+Existing effects (tilt, flip reveal, `flip3d`, diff, typewriter) all follow this.
+
+> Sneaky trap: "animated" backdrops (starfields, pulsing glows) tempt a
+> self-running loop. Build the drift/pulse as `f(progress)` and it stays
+> export-safe — it still moves as the video plays, which is what you want.
+
+---
+
+## Architecture map (where things live)
+
+| File                               | Role                                                                                                          |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `src/components/PreviewCanvas.tsx` | **The renderer.** Pure function of `settings` + `progress` + `playing`. All reveals/transitions/3D live here. |
+| `src/lib/timeline.ts`              | Builds the stepped-mode timeline (`buildTimeline`) and maps `progress → phase` (`locate`). Pure.              |
+| `src/lib/usePlayback.ts`           | The wall-clock (rAF) that produces `progress`. **This is the swap point for export** (see below).             |
+| `src/lib/types.ts`                 | `Settings` shape + option lists (`AnimationStyle`, `TransitionStyle`, `ASPECTS`, `FONTS`).                    |
+| `src/lib/themes.ts`                | Code themes + background gradients.                                                                           |
+| `src/components/StylePanel.tsx`    | Right-hand controls (theme, background, window, 3D pad, typography).                                          |
+| `src/components/PlaybackBar.tsx`   | Transport + Motion selector.                                                                                  |
+| `src/components/CodePanel.tsx`     | Code input, steps, transition selectors.                                                                      |
+| `src/components/ExportModal.tsx`   | **Currently a mock** — progress bar only, "encoder isn't wired up yet."                                       |
+
+---
+
+## Tiers
+
+### Tier 1 — CSS 3D (fits the current architecture directly)
+
+| #   | Effect                                                                                                                                  | Status                                                                                    |
+| --- | --------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| 1   | **Hero-card tilt** — `perspective` on the stage wrapper + `rotateX/rotateY` on the window; 8-direction pad + amount slider (Style → 3D) | ✅ Done — commits `ecce5fb`, `3556bbb`                                                    |
+| 2   | **3D flip-up line reveal** — each line hinges down from its top edge, rises from depth, settling blur ("3D" motion)                     | ✅ Done — `ecce5fb`                                                                       |
+| 4   | **`flip3d` step transition** — card-flip between snapshots, edge-on swap at the midpoint ("Flip 3D" transition)                         | ✅ Done — `ecce5fb`                                                                       |
+| 3   | **Depth-of-field reveal** — non-active lines sit back in Z + blur                                                                       | ◻️ Partial — blur is folded into the flip reveal; no standalone/typewriter DoF. Optional. |
+| 5   | **Parallax backdrop** — background gradient / dot-grid / window drift at different rates for scene depth                                | ❌ Not started (the one real remaining Tier 1 piece)                                      |
+
+Implementation notes: `CodeRow` carries `tz` / `rotX` / `blur` depth channels.
+The code container and the `flip3d` transition each establish their own
+`perspective` context. `perspective` lives on the **parent** of the tilted
+element (not `preserve-3d`), which composes cleanly with the window's
+`overflow: hidden`.
+
+### Tier 2 — 2.5D polish (still pure CSS, still preview-only for now)
+
+- **Accent bloom / glow** that pulses with the caret + reveal frontier — safe
+  **if** it pulses off the frontier (`progress`-derived), not a CSS loop.
+- **Floor reflection** — mirrored, faded window copy. Static per frame → trivially safe.
+- **Animated 3D grid / starfield backdrop** — also delivers Tier 1's parallax idea.
+  Build drift as `f(progress)`.
+- **Per-token stagger** (currently per-line) + light-sweep across the active line.
+
+Status: not started.
+
+### Tier 3 — Real 3D (React Three Fiber; bigger lift, parallel renderer)
+
+- Render the code card as a textured plane in an actual 3D scene.
+- Real lighting + **camera choreography** (dolly-in on the reveal line, pull back on holds).
+- **Bloom** postprocessing.
+- **GLSL shader transitions** between steps (dissolve / RGB-split / ripple).
+
+This is a separate renderer, not an extension of `PreviewCanvas`. Still keep it
+driven by `progress` (drive the R3F clock from `progress`, don't let it free-run)
+so export stays deterministic. WebGL captures naturally via canvas
+`captureStream` / WebCodecs.
+
+---
+
+## Remotion / video export — it can come LATER with no extra work
+
+**Key point: adding effects now is the right order.** Because the render is
+already a pure function of `progress`, every effect you add feeds straight into
+export later — you reuse `PreviewCanvas`, `timeline.ts`, and all reveal/transition
+functions **as-is**. Nothing gets reimplemented.
+
+Wiring Remotion is essentially swapping the `progress` source:
+
+```tsx
+// today (live preview):
+<PreviewCanvas progress={playback.progress} playing={playing} settings={settings} />
+
+// Remotion composition (headless Chromium, one deterministic frame at a time):
+<PreviewCanvas
+  progress={useCurrentFrame() / durationInFrames}
+  playing
+  settings={settings}
+/>
+// durationInFrames = timeline.total * fps
+```
+
+Why Remotion specifically: it renders the same React + CSS in real headless
+Chromium, so CSS 3D transforms render **identically** to the preview. (Compare:
+`html2canvas` reimplements CSS in JS and **silently drops 3D transforms** — do
+not use it. Playwright/Puppeteer screenshot-per-frame also works since it's real
+Chromium.)
+
+**Current export debt: none in rendered frames.** The only wall-clock bits are
+the caret blink (only applies when _paused_ — `playing ? '' : 'caret-blink'`) and
+the export-modal shimmer (UI chrome, never in a frame).
+
+**Known "later" wrinkles (minor, solvable):**
+
+- The auto-fit `scale()` uses `useElementSize` (ResizeObserver). A headless
+  single-frame render may need a deterministic scale value or Remotion's
+  `delayRender`/`continueRender` to let layout settle.
+- Pass `playing={true}` (or drop the caret blink) in the Remotion composition.
+
+**So the deal is:** keep building effects in the web UI. As long as the one rule
+above is kept, Remotion wraps what already exists whenever MP4 output is wanted —
+no throwaway work.
+
+---
+
+## Recommended sequencing
+
+1. Keep adding Tier 1 / Tier 2 effects in the web UI (holding the one rule).
+2. Wire Remotion when you actually need MP4s — it reuses everything.
+3. Tier 3 (R3F) only if 3D becomes the product's signature look.

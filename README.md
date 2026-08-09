@@ -10,8 +10,6 @@ the export flow is mocked.
 
 - ✅ prototype
 - ☑️ MVP + export in multiple formats
-- ☑️ authentication
-- ☑️ save projects
 - ☑️ payment with PayPal
 
 ## Run it
@@ -29,12 +27,28 @@ Before submitting changes, run:
 npm run lint
 npm test
 npm run build
+## Test it
+
+The Playwright end-to-end suite covers critical user journeys in Chromium.
+Install the browser once after installing the project dependencies, then run the suite:
+
+```sh
+npm ci
+npx playwright install chromium
+npm test
+```
+
+Use Playwright UI mode when developing or debugging tests:
+
+```sh
+npm run test:e2e:ui
 ```
 
 ## What's inside
 
 - **Code input** (left panel): editable snippet, 9-language selector with per-language
-  sample code, hand-rolled syntax highlighter (`src/lib/highlight.ts`).
+  sample code, and a hand-rolled syntax highlighter (`src/lib/highlight.ts`). Upload
+  UTF-8 source files up to 1 MB to replace the current snippet.
 - **Animated preview** (center): styled macOS-style code window rendered on an
   aspect-ratio canvas, animated with typewriter / fade-in / slide motion presets.
   The window auto-scales to fit the canvas.

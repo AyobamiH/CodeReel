@@ -107,7 +107,8 @@ const SPECS: Record<Language, LangSpec> = {
   css: {
     comments: [/\/\*[\s\S]*?\*\//g],
     strings: [/"(?:[^"\\\n]|\\.)*"/g, /'(?:[^'\\\n]|\\.)*'/g],
-    number: /(?:#[0-9a-fA-F]{3,8}\b|-?(?:\d+\.?\d*|\.\d+)(?:px|em|rem|vh|vw|vmin|vmax|%|s|ms|deg|fr|ch)?)/g,
+    number:
+      /(?:#[0-9a-fA-F]{3,8}\b|-?(?:\d+\.?\d*|\.\d+)(?:px|em|rem|vh|vw|vmin|vmax|%|s|ms|deg|fr|ch)?)/g,
     keywords: kw('important inherit initial unset auto none'),
     constants: new Set(),
     extras: [
@@ -187,7 +188,8 @@ function scan(code: string, spec: LangSpec): Token[] {
       const m = matchAt(re, code, i)
       if (m) {
         // JSON object keys read as properties
-        const isJsonKey = spec === SPECS.json && matchAt(/"(?:[^"\\\n]|\\.)*"(?=\s*:)/g, code, i) !== null
+        const isJsonKey =
+          spec === SPECS.json && matchAt(/"(?:[^"\\\n]|\\.)*"(?=\s*:)/g, code, i) !== null
         push(isJsonKey ? 'property' : 'string', m)
         continue outer
       }

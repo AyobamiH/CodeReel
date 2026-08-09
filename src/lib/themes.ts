@@ -165,7 +165,11 @@ export const BACKGROUNDS: Background[] = [
   { id: 'ocean', name: 'Ocean', css: 'linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%)' },
   { id: 'candy', name: 'Candy', css: 'linear-gradient(135deg, #f472b6 0%, #a78bfa 100%)' },
   { id: 'forest', name: 'Forest', css: 'linear-gradient(135deg, #34d399 0%, #065f46 100%)' },
-  { id: 'ember', name: 'Ember', css: 'linear-gradient(135deg, #f59e0b 0%, #ef4444 60%, #7c2d12 100%)' },
+  {
+    id: 'ember',
+    name: 'Ember',
+    css: 'linear-gradient(135deg, #f59e0b 0%, #ef4444 60%, #7c2d12 100%)',
+  },
   { id: 'slate', name: 'Slate', css: 'linear-gradient(160deg, #334155 0%, #0f172a 100%)' },
   { id: 'mono', name: 'Mono', css: '#18181b' },
   { id: 'none', name: 'None', css: 'transparent' },

@@ -13,6 +13,9 @@ import { ExportModal } from './components/ExportModal'
 const DEFAULT_SETTINGS: Settings = {
   mode: 'sequence',
   code: SAMPLES.typescript,
+  console: '',
+  consoleDur: 2.5,
+  consoleStatus: 'success',
   steps: makeDefaultSteps(),
   transition: 'diff',
   stepHold: 1.2,
@@ -49,9 +52,9 @@ export default function App() {
     setSettings((prev) => ({ ...prev, ...patch }))
   }, [])
 
-  // in steps mode the whole timeline drives the clock; in sequence mode, plain duration
+  // the built timeline's total length is the playback clock in both modes
   const timeline = useMemo(() => buildTimeline(settings), [settings])
-  const effectiveDuration = settings.mode === 'steps' ? timeline.total : settings.duration
+  const effectiveDuration = timeline.total
 
   const playback = usePlayback(effectiveDuration, settings.speed, settings.loop)
   const { restart, toggle, seek, pause, playTo } = playback
@@ -59,7 +62,7 @@ export default function App() {
   // editing content / switching language / mode restarts the take
   useEffect(() => {
     restart()
-  }, [settings.code, settings.steps, settings.language, settings.mode, restart])
+  }, [settings.code, settings.console, settings.steps, settings.language, settings.mode, restart])
 
   // keep the editor's active step in range
   useEffect(() => {
@@ -110,9 +113,18 @@ export default function App() {
     <div className="flex h-full flex-col bg-ink-950 text-zinc-200">
       <TopBar settings={settings} update={update} onExport={() => setExporting(true)} />
       <div className="flex min-h-0 flex-1">
-        <CodePanel settings={settings} update={update} activeStep={activeStep} setActiveStep={setActiveStep} />
+        <CodePanel
+          settings={settings}
+          update={update}
+          activeStep={activeStep}
+          setActiveStep={setActiveStep}
+        />
         <main className="flex min-w-0 flex-1 flex-col">
-          <PreviewCanvas settings={settings} progress={playback.progress} playing={playback.playing} />
+          <PreviewCanvas
+            settings={settings}
+            progress={playback.progress}
+            playing={playback.playing}
+          />
           <PlaybackBar
             settings={settings}
             update={update}
@@ -124,7 +136,13 @@ export default function App() {
         </main>
         <StylePanel settings={settings} update={update} />
       </div>
-      {exporting && <ExportModal settings={settings} onClose={() => setExporting(false)} />}
+      {exporting && (
+        <ExportModal
+          settings={settings}
+          duration={effectiveDuration}
+          onClose={() => setExporting(false)}
+        />
+      )}
     </div>
   )
 }
