@@ -78,11 +78,14 @@ of the exported frame) and drift via loop-safe sine of `progress`.
 - ✅ **Accent bloom / glow** — Done. Theme-coloured halo (`theme.swatch[1]`) as
   an extra `box-shadow` layer on the window; breathes via `sin(progress·4π)`
   (loop-safe, deterministic). Style → 3D `bloom` slider.
-- **Animated 3D grid / starfield backdrop** — also delivers Tier 1's parallax idea.
-  Build drift as `f(progress)`.
-- **Per-token stagger** (currently per-line) + light-sweep across the active line.
+- ✅ **Per-token stagger + light-sweep** — Done. New "Tokens" motion cascades
+  tokens in reading order (materialising from a slight blur, honouring `dof`); a
+  `sweep` sheen passes once across the code during the reveal, tied to the
+  reveal's `localT`. Style → 3D `sweep` slider.
+- ✅ **Animated 3D grid / starfield backdrop** — delivered by the Tier 1 parallax
+  backdrop (ambient glow + dot-grid drift); no separate implementation needed.
 
-Status: floor reflection + accent bloom done; animated backdrop / per-token stagger remaining.
+**Tier 2 is complete.**
 
 ### Tier 3 — Real 3D (React Three Fiber; bigger lift, parallel renderer)
 

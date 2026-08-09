@@ -231,6 +231,14 @@ export function StylePanel({
           unit="%"
           onChange={(v) => update({ bloom: v })}
         />
+        <Slider
+          label="Light sweep"
+          value={settings.sweep}
+          min={0}
+          max={100}
+          unit="%"
+          onChange={(v) => update({ sweep: v })}
+        />
       </Section>
 
       <Section title="Typography">

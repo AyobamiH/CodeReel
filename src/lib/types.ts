@@ -13,7 +13,7 @@ export const LANGUAGES: { id: Language; label: string }[] = [
   { id: 'bash', label: 'Bash' },
 ]
 
-export type AnimationStyle = 'typewriter' | 'fade' | 'slide' | 'flip'
+export type AnimationStyle = 'typewriter' | 'fade' | 'slide' | 'flip' | 'tokens'
 export type Aspect = '16:9' | '1:1' | '9:16'
 export type Format = 'mp4' | 'gif' | 'webm'
 
@@ -107,6 +107,8 @@ export interface Settings {
   reflection: number
   /** accent bloom — theme-coloured glow around the window that breathes (0 = off) */
   bloom: number
+  /** light-sweep sheen that passes across the code as it reveals (0 = off) */
+  sweep: number
   animation: AnimationStyle
   duration: number
   speed: number

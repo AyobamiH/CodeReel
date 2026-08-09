@@ -1,4 +1,5 @@
 import {
+  Braces,
   Keyboard,
   MoveRight,
   Pause,
@@ -191,6 +192,15 @@ export function PlaybackBar({
                 label: (
                   <span className="flex items-center gap-1.5">
                     <Rotate3d className="h-3.5 w-3.5" /> 3D
+                  </span>
+                ),
+              },
+              {
+                value: 'tokens',
+                title: 'Per-token cascade',
+                label: (
+                  <span className="flex items-center gap-1.5">
+                    <Braces className="h-3.5 w-3.5" /> Tokens
                   </span>
                 ),
               },

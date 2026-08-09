@@ -197,6 +197,8 @@ function revealRows(
     })
   }
 
+  if (animation === 'tokens') return tokenRows(lines, revealT, ctx)
+
   // fade / slide / flip: staggered per-line reveal
   const stagger = n > 1 ? 0.72 / (n - 1) : 0
   const lineDur = Math.max(0.28, stagger * 2.2)
@@ -225,6 +227,55 @@ function revealRows(
         rotX={rotX}
         blur={blur}
       />
+    )
+  })
+}
+
+/** Per-token cascade: tokens fade + sharpen in reading order, one after another. */
+function tokenRows(lines: Token[][], revealT: number, ctx: RowCtx): ReactNode[] {
+  const total = Math.max(
+    1,
+    lines.reduce((s, l) => s + l.length, 0),
+  )
+  const stagger = total > 1 ? 0.7 / (total - 1) : 0
+  const tokDur = Math.max(0.12, stagger * 4)
+  const dofN = ctx.dof / 100
+  let g = 0
+  const at = (order: number) => easeOutCubic(clamp01((revealT - order * stagger) / tokDur))
+  return lines.map((line, i) => {
+    const firstT = line.length ? at(g) : 1
+    return (
+      <div key={i} className="flex whitespace-pre" style={{ height: ctx.lineHeightPx }}>
+        {ctx.lineNumbers && (
+          <span
+            className="mr-4 w-6 shrink-0 text-right select-none tabular-nums"
+            style={{ color: ctx.lineNumberColor, opacity: 0.8 * firstT }}
+          >
+            {i + 1}
+          </span>
+        )}
+        <span>
+          {line.length
+            ? line.map((tok, j) => {
+                const t = at(g++)
+                return (
+                  <span
+                    key={j}
+                    style={{
+                      color: ctx.colors[tok.t] ?? ctx.fg,
+                      fontStyle: tok.t === 'comment' ? 'italic' : undefined,
+                      opacity: t,
+                      filter:
+                        t < 1 ? `blur(${((1 - t) * (1 + dofN * 3)).toFixed(2)}px)` : undefined,
+                    }}
+                  >
+                    {tok.s}
+                  </span>
+                )
+              })
+            : ' '}
+        </span>
+      </div>
     )
   })
 }
@@ -588,6 +639,12 @@ export function PreviewCanvas({
       ? `below 2px linear-gradient(transparent 34%, rgba(0,0,0,${reflectAlpha}))`
       : undefined
 
+  // light-sweep: a soft sheen that passes once across the code as it reveals (reveal phase only).
+  // Position is tied to the reveal's localT, so it's deterministic and gone by the time it settles.
+  const sweepOn = settings.sweep > 0 && phase.kind === 'reveal' && localT < 1
+  const sweepLeft = (-45 + localT * 145).toFixed(1)
+  const sweepAlpha = ((settings.sweep / 100) * 0.18).toFixed(3)
+
   return (
     <div
       ref={stageRef}
@@ -676,7 +733,7 @@ export function PreviewCanvas({
               )}
 
               <div
-                className="px-5 py-4"
+                className="relative px-5 py-4"
                 style={{
                   fontFamily: font.stack,
                   fontSize: settings.fontSize,
@@ -687,6 +744,21 @@ export function PreviewCanvas({
                 }}
               >
                 {rows}
+                {sweepOn && (
+                  <div className="pointer-events-none absolute inset-0 overflow-hidden">
+                    <div
+                      style={{
+                        position: 'absolute',
+                        top: 0,
+                        bottom: 0,
+                        width: '45%',
+                        left: `${sweepLeft}%`,
+                        background: `linear-gradient(100deg, transparent, rgba(255,255,255,${sweepAlpha}) 50%, transparent)`,
+                        transform: 'skewX(-14deg)',
+                      }}
+                    />
+                  </div>
+                )}
               </div>
             </div>
           </div>

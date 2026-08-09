@@ -30,9 +30,11 @@ free" later.
 Tier 1/2/3 plan, current status, and how Remotion fits (it can come later with no
 extra work if the rule above is kept): see **[`docs/3d-roadmap.md`](docs/3d-roadmap.md)**.
 
-**Tier 1 is complete**: hero-card perspective tilt (8-direction pad), 3D flip-up
-reveal, `flip3d` step transition, depth-of-field (`dof`), parallax backdrop
-(`parallax`). Next up: Tier 2 (bloom, floor reflection, animated backdrop).
+**Tiers 1 and 2 are complete.** Tier 1: hero-card perspective tilt (8-direction
+pad), 3D flip-up reveal, `flip3d` step transition, depth-of-field (`dof`),
+parallax backdrop (`parallax`). Tier 2: floor reflection (`reflection`), accent
+bloom (`bloom`), per-token cascade ("Tokens" motion) + light-sweep (`sweep`).
+Next up: Tier 3 (React Three Fiber — separate WebGL renderer, bigger lift).
 
 ## Commands
 
