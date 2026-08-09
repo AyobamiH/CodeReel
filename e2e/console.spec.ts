@@ -10,7 +10,9 @@ test.describe('Console section', () => {
     await expectNoPageErrors(page)
   })
 
-  test('console output is authored in an accordion and rendered in the preview', async ({ page }) => {
+  test('console output is authored in an accordion and rendered in the preview', async ({
+    page,
+  }) => {
     const accordion = page.getByRole('button', { name: 'Console' })
     await expect(accordion).toHaveAttribute('aria-expanded', 'false')
 
@@ -28,10 +30,19 @@ test.describe('Console section', () => {
     await page.getByRole('button', { name: 'Console' }).click()
 
     const group = page.getByRole('radiogroup', { name: 'Console status' })
-    await expect(group.getByRole('radio', { name: 'Success' })).toHaveAttribute('aria-checked', 'true')
+    await expect(group.getByRole('radio', { name: 'Success' })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    )
 
     await group.getByRole('radio', { name: 'Error' }).click()
-    await expect(group.getByRole('radio', { name: 'Error' })).toHaveAttribute('aria-checked', 'true')
-    await expect(group.getByRole('radio', { name: 'Success' })).toHaveAttribute('aria-checked', 'false')
+    await expect(group.getByRole('radio', { name: 'Error' })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    )
+    await expect(group.getByRole('radio', { name: 'Success' })).toHaveAttribute(
+      'aria-checked',
+      'false',
+    )
   })
 })

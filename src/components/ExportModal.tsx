@@ -86,7 +86,9 @@ export function ExportModal({
                 {done ? 'Export complete' : `Exporting ${ext.toUpperCase()}`}
               </h2>
               <p className="text-[12px] text-zinc-500">
-                {done ? fileName : `${PHASE_LABEL[phase]}${phase === 'encode' ? ` ${ext.toUpperCase()}` : ''}…`}
+                {done
+                  ? fileName
+                  : `${PHASE_LABEL[phase]}${phase === 'encode' ? ` ${ext.toUpperCase()}` : ''}…`}
               </p>
             </div>
           </div>
@@ -125,7 +127,10 @@ export function ExportModal({
             ['Duration', `${duration.toFixed(1)}s`],
             ['Est. size', `${sizeMB} MB`],
           ].map(([k, v]) => (
-            <div key={k} className="rounded-lg bg-white/[0.04] px-2 py-2 text-center ring-1 ring-white/5">
+            <div
+              key={k}
+              className="rounded-lg bg-white/[0.04] px-2 py-2 text-center ring-1 ring-white/5"
+            >
               <div className="text-[10px] text-zinc-500">{k}</div>
               <div className="mt-0.5 font-mono text-[11.5px] text-zinc-200">{v}</div>
             </div>

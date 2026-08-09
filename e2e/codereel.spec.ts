@@ -50,12 +50,16 @@ test.describe('CodeReel critical journeys', () => {
     const download = page.getByRole('button', { name: 'Download GIF' })
     await expect(download).toBeDisabled()
 
-    await expect(page.getByRole('heading', { name: 'Export complete' })).toBeVisible({ timeout: 10_000 })
+    await expect(page.getByRole('heading', { name: 'Export complete' })).toBeVisible({
+      timeout: 10_000,
+    })
     await expect(page.getByText('codereel-1x1.gif', { exact: true })).toBeVisible()
     await expect(download).toBeEnabled()
 
     await download.click()
-    await expect(page.getByText("Prototype build — the encoder isn't wired up yet.", { exact: true })).toBeVisible()
+    await expect(
+      page.getByText("Prototype build — the encoder isn't wired up yet.", { exact: true }),
+    ).toBeVisible()
 
     await page.getByRole('button', { name: 'Close' }).click()
     await expect(page.getByRole('heading', { name: 'Export complete' })).toBeHidden()

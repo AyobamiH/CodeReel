@@ -35,7 +35,9 @@ test.describe('Playback', () => {
   })
 
   test('duration selector drives the total timeline length', async ({ page }) => {
-    const durationSelect = page.locator('select', { has: page.locator('option', { hasText: '15s' }) })
+    const durationSelect = page.locator('select', {
+      has: page.locator('option', { hasText: '15s' }),
+    })
     await durationSelect.selectOption({ label: '8s' })
     await expect(page.getByText('8.0s').last()).toBeVisible()
   })

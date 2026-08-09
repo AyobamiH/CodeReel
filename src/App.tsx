@@ -113,9 +113,18 @@ export default function App() {
     <div className="flex h-full flex-col bg-ink-950 text-zinc-200">
       <TopBar settings={settings} update={update} onExport={() => setExporting(true)} />
       <div className="flex min-h-0 flex-1">
-        <CodePanel settings={settings} update={update} activeStep={activeStep} setActiveStep={setActiveStep} />
+        <CodePanel
+          settings={settings}
+          update={update}
+          activeStep={activeStep}
+          setActiveStep={setActiveStep}
+        />
         <main className="flex min-w-0 flex-1 flex-col">
-          <PreviewCanvas settings={settings} progress={playback.progress} playing={playback.playing} />
+          <PreviewCanvas
+            settings={settings}
+            progress={playback.progress}
+            playing={playback.playing}
+          />
           <PlaybackBar
             settings={settings}
             update={update}
@@ -128,7 +137,11 @@ export default function App() {
         <StylePanel settings={settings} update={update} />
       </div>
       {exporting && (
-        <ExportModal settings={settings} duration={effectiveDuration} onClose={() => setExporting(false)} />
+        <ExportModal
+          settings={settings}
+          duration={effectiveDuration}
+          onClose={() => setExporting(false)}
+        />
       )}
     </div>
   )

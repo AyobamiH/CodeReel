@@ -39,7 +39,9 @@ test.describe('Style panel', () => {
 
   test('changing the font family updates the rendered code', async ({ page }) => {
     await expect(codeBox(page)).toHaveCSS('font-family', /JetBrains Mono/)
-    const fontSelect = page.locator('select', { has: page.locator('option', { hasText: 'Fira Code' }) })
+    const fontSelect = page.locator('select', {
+      has: page.locator('option', { hasText: 'Fira Code' }),
+    })
     await fontSelect.selectOption({ label: 'Fira Code' })
     await expect(codeBox(page)).toHaveCSS('font-family', /Fira Code/)
   })

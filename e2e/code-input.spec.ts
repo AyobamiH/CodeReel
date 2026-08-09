@@ -15,7 +15,9 @@ test.describe('Code input', () => {
     await expect(main).toContainText('Memoized fibonacci') // TypeScript sample by default
 
     // the language selector is the only <select> offering "TypeScript"
-    const languageSelect = page.locator('select', { has: page.locator('option', { hasText: 'TypeScript' }) })
+    const languageSelect = page.locator('select', {
+      has: page.locator('option', { hasText: 'TypeScript' }),
+    })
     await languageSelect.selectOption({ label: 'Python' })
 
     await expect(page.locator('textarea').first()).toHaveValue(/def quicksort/)
@@ -30,7 +32,9 @@ test.describe('Code input', () => {
     })
 
     await expect(page.getByText('Imported snippet.py as Python.', { exact: true })).toBeVisible()
-    await expect(page.locator('select', { has: page.locator('option', { hasText: 'TypeScript' }) })).toHaveValue('python')
+    await expect(
+      page.locator('select', { has: page.locator('option', { hasText: 'TypeScript' }) }),
+    ).toHaveValue('python')
     await expect(page.locator('textarea').first()).toHaveValue(/hello from upload/)
     await expect(page.getByRole('main')).toContainText('hello from upload')
   })

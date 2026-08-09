@@ -21,11 +21,15 @@ test.describe('Steps mode', () => {
     const panel = codePanel(page)
     // jump to step 2 ("Guard the empty case")
     await panel.getByRole('button', { name: '2', exact: true }).click()
-    await expect(page.getByPlaceholder('Step caption (optional)…')).toHaveValue('Guard the empty case')
+    await expect(page.getByPlaceholder('Step caption (optional)…')).toHaveValue(
+      'Guard the empty case',
+    )
 
     await panel.getByTitle('Move left').click()
     await expect(panel.getByText('Step 1 / 3', { exact: true })).toBeVisible()
-    await expect(page.getByPlaceholder('Step caption (optional)…')).toHaveValue('Guard the empty case')
+    await expect(page.getByPlaceholder('Step caption (optional)…')).toHaveValue(
+      'Guard the empty case',
+    )
   })
 
   test('per-step transition override is configurable', async ({ page }) => {
@@ -33,13 +37,17 @@ test.describe('Steps mode', () => {
     await panel.getByRole('button', { name: '2', exact: true }).click()
 
     // the per-step select is the one offering a "Default (…)" entry
-    const override = page.locator('select', { has: page.locator('option', { hasText: 'Default (' }) })
+    const override = page.locator('select', {
+      has: page.locator('option', { hasText: 'Default (' }),
+    })
     await override.selectOption({ label: 'Crossfade' })
     await expect(override).toHaveValue('crossfade')
   })
 
   test('the default transition is configurable', async ({ page }) => {
-    const defaultTransition = page.locator('label', { hasText: 'Default transition' }).getByRole('combobox')
+    const defaultTransition = page
+      .locator('label', { hasText: 'Default transition' })
+      .getByRole('combobox')
     await defaultTransition.selectOption({ label: 'Typewriter' })
     await expect(defaultTransition).toHaveValue('typewriter')
   })
