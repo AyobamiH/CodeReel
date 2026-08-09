@@ -1,0 +1,9 @@
+# Check formatting and lint across the WHOLE project — not just staged files,
+# since not everyone stages every change. Run both, report both, then fail the
+# commit if either did.
+status=0
+
+npm run format:check || status=1
+npm run lint || status=1
+
+exit $status
