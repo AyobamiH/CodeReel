@@ -199,6 +199,22 @@ export function StylePanel({
           unit="°"
           onChange={(v) => update({ tilt: v })}
         />
+        <Slider
+          label="Depth of field"
+          value={settings.dof}
+          min={0}
+          max={100}
+          unit="%"
+          onChange={(v) => update({ dof: v })}
+        />
+        <Slider
+          label="Parallax"
+          value={settings.parallax}
+          min={0}
+          max={100}
+          unit="%"
+          onChange={(v) => update({ parallax: v })}
+        />
       </Section>
 
       <Section title="Typography">

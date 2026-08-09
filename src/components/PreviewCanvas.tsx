@@ -57,6 +57,8 @@ interface RowCtx {
   caretColor: string
   lineNumbers: boolean
   lineHeightPx: number
+  /** depth-of-field intensity 0..100 — how far revealing lines sit back + blur */
+  dof: number
 }
 
 function CodeRow({
@@ -193,15 +195,18 @@ function revealRows(
   // fade / slide / flip: staggered per-line reveal
   const stagger = n > 1 ? 0.72 / (n - 1) : 0
   const lineDur = Math.max(0.28, stagger * 2.2)
+  const dofN = ctx.dof / 100
   return lines.map((line, i) => {
     const t = easeOutCubic(clamp01((revealT - i * stagger) / lineDur))
     const rest = 1 - t
     const tx = animation === 'slide' ? rest * -32 : 0
     const ty = animation === 'fade' ? rest * 14 : 0
-    // flip: each line hinges down from its top edge and rises out of depth
+    // flip: each line hinges down from its top edge
     const rotX = animation === 'flip' ? rest * 82 : 0
-    const tz = animation === 'flip' ? rest * -60 : 0
-    const blur = animation === 'flip' ? rest * 2.5 : 0
+    // depth-of-field: revealing lines sit back in Z + blur, sharpening as they settle
+    // (shared by fade/slide/flip; at dof=50 this matches the original flip depth)
+    const tz = rest * dofN * -120
+    const blur = rest * dofN * 5
     return (
       <CodeRow
         key={i}
@@ -383,6 +388,7 @@ export function PreviewCanvas({
     caretColor: theme.caret,
     lineNumbers: settings.lineNumbers,
     lineHeightPx,
+    dof: settings.dof,
   }
 
   // sequence mode: one snapshot
@@ -546,6 +552,19 @@ export function PreviewCanvas({
     ? `rotateY(${settings.tiltX * settings.tilt}deg) rotateX(${settings.tiltY * settings.tilt}deg)`
     : undefined
 
+  // parallax backdrop: layers drift at different rates for scene depth.
+  // Driven by sin/cos(progress·2π) so every layer returns to its start at progress
+  // 0 and 1 — seamless on loop and fully deterministic (no wall-clock).
+  const parOn = settings.parallax > 0 && !isTransparent
+  const pAmt = settings.parallax / 100
+  const pPhase = progress * Math.PI * 2
+  const glowX = Math.sin(pPhase + 0.9) * 34 * pAmt
+  const glowY = Math.cos(pPhase + 0.9) * 22 * pAmt
+  const dotX = Math.sin(pPhase) * 24 * pAmt
+  const dotY = Math.cos(pPhase) * 24 * pAmt
+  const winX = Math.sin(pPhase) * -9 * pAmt // window counter-floats against the backdrop
+  const winY = Math.cos(pPhase) * -6 * pAmt
+
   return (
     <div
       ref={stageRef}
@@ -570,7 +589,35 @@ export function PreviewCanvas({
             />
           )}
 
-          <div style={{ transform: `scale(${scale})`, perspective: tilted ? '1600px' : undefined }}>
+          {parOn && (
+            <>
+              {/* far layer: soft ambient glow, drifts most */}
+              <div
+                className="pointer-events-none absolute inset-[-15%]"
+                style={{
+                  background:
+                    'radial-gradient(42% 42% at 50% 42%, rgba(255,255,255,0.08), transparent 70%)',
+                  transform: `translate(${glowX}px, ${glowY}px)`,
+                }}
+              />
+              {/* mid layer: dot grid, drifts via background-position so edges never show */}
+              <div
+                className="pointer-events-none absolute inset-0"
+                style={{
+                  backgroundImage: 'radial-gradient(rgba(255,255,255,0.05) 1px, transparent 1px)',
+                  backgroundSize: '26px 26px',
+                  backgroundPosition: `${dotX}px ${dotY}px`,
+                }}
+              />
+            </>
+          )}
+
+          <div
+            style={{
+              transform: `${parOn ? `translate(${winX}px, ${winY}px) ` : ''}scale(${scale})`,
+              perspective: tilted ? '1600px' : undefined,
+            }}
+          >
             <div
               ref={windowRef}
               className="overflow-hidden"

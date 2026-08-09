@@ -51,19 +51,23 @@ Existing effects (tilt, flip reveal, `flip3d`, diff, typewriter) all follow this
 
 ### Tier 1 — CSS 3D (fits the current architecture directly)
 
-| #   | Effect                                                                                                                                  | Status                                                                                    |
-| --- | --------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| 1   | **Hero-card tilt** — `perspective` on the stage wrapper + `rotateX/rotateY` on the window; 8-direction pad + amount slider (Style → 3D) | ✅ Done — commits `ecce5fb`, `3556bbb`                                                    |
-| 2   | **3D flip-up line reveal** — each line hinges down from its top edge, rises from depth, settling blur ("3D" motion)                     | ✅ Done — `ecce5fb`                                                                       |
-| 4   | **`flip3d` step transition** — card-flip between snapshots, edge-on swap at the midpoint ("Flip 3D" transition)                         | ✅ Done — `ecce5fb`                                                                       |
-| 3   | **Depth-of-field reveal** — non-active lines sit back in Z + blur                                                                       | ◻️ Partial — blur is folded into the flip reveal; no standalone/typewriter DoF. Optional. |
-| 5   | **Parallax backdrop** — background gradient / dot-grid / window drift at different rates for scene depth                                | ❌ Not started (the one real remaining Tier 1 piece)                                      |
+| #   | Effect                                                                                                                                                                                                  | Status                                 |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
+| 1   | **Hero-card tilt** — `perspective` on the stage wrapper + `rotateX/rotateY` on the window; 8-direction pad + amount slider (Style → 3D)                                                                 | ✅ Done — commits `ecce5fb`, `3556bbb` |
+| 2   | **3D flip-up line reveal** — each line hinges down from its top edge, rises from depth, settling blur ("3D" motion)                                                                                     | ✅ Done — `ecce5fb`                    |
+| 4   | **`flip3d` step transition** — card-flip between snapshots, edge-on swap at the midpoint ("Flip 3D" transition)                                                                                         | ✅ Done — `ecce5fb`                    |
+| 3   | **Depth-of-field reveal** — revealing lines sit back in Z + blur, sharpening as they settle; shared across fade/slide/flip via one `dof` setting (Style → 3D). At `dof=50` the flip depth is unchanged. | ✅ Done                                |
+| 5   | **Parallax backdrop** — ambient glow + dot-grid + window drift at different rates for scene depth; `sin/cos(progress·2π)` so it's seamless on loop (Style → 3D `parallax`).                             | ✅ Done                                |
 
-Implementation notes: `CodeRow` carries `tz` / `rotX` / `blur` depth channels.
-The code container and the `flip3d` transition each establish their own
+**Tier 1 is complete.**
+
+Implementation notes: `CodeRow` carries `tz` / `rotX` / `blur` depth channels;
+the shared depth-of-field (`ctx.dof`) drives `tz`/`blur` for every staggered
+reveal. The code container and the `flip3d` transition each establish their own
 `perspective` context. `perspective` lives on the **parent** of the tilted
 element (not `preserve-3d`), which composes cleanly with the window's
-`overflow: hidden`.
+`overflow: hidden`. Parallax layers live **inside the canvas** (so they're part
+of the exported frame) and drift via loop-safe sine of `progress`.
 
 ### Tier 2 — 2.5D polish (still pure CSS, still preview-only for now)
 

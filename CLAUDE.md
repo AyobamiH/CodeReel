@@ -30,8 +30,9 @@ free" later.
 Tier 1/2/3 plan, current status, and how Remotion fits (it can come later with no
 extra work if the rule above is kept): see **[`docs/3d-roadmap.md`](docs/3d-roadmap.md)**.
 
-Tier 1 done so far: hero-card perspective tilt (8-direction pad), 3D flip-up
-reveal, `flip3d` step transition. Remaining Tier 1: parallax backdrop.
+**Tier 1 is complete**: hero-card perspective tilt (8-direction pad), 3D flip-up
+reveal, `flip3d` step transition, depth-of-field (`dof`), parallax backdrop
+(`parallax`). Next up: Tier 2 (bloom, floor reflection, animated backdrop).
 
 ## Commands
 

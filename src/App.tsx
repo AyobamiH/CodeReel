@@ -35,6 +35,8 @@ const DEFAULT_SETTINGS: Settings = {
   tilt: 12,
   tiltX: -1,
   tiltY: 1,
+  dof: 50,
+  parallax: 35,
   animation: 'flip',
   duration: 5,
   speed: 1,

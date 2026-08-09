@@ -99,6 +99,10 @@ export interface Settings {
   tiltX: number
   /** tilt direction, vertical: -1 = look up at … 1 = look down at, 0 = none */
   tiltY: number
+  /** depth-of-field: revealing lines emerge from soft depth (0 = flat, 100 = strong) */
+  dof: number
+  /** parallax backdrop drift intensity (0 = off) */
+  parallax: number
   animation: AnimationStyle
   duration: number
   speed: number
