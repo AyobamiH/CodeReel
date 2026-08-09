@@ -105,6 +105,8 @@ export interface Settings {
   parallax: number
   /** floor reflection strength beneath the window (0 = off) */
   reflection: number
+  /** accent bloom — theme-coloured glow around the window that breathes (0 = off) */
+  bloom: number
   animation: AnimationStyle
   duration: number
   speed: number

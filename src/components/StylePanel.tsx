@@ -223,6 +223,14 @@ export function StylePanel({
           unit="%"
           onChange={(v) => update({ reflection: v })}
         />
+        <Slider
+          label="Accent bloom"
+          value={settings.bloom}
+          min={0}
+          max={100}
+          unit="%"
+          onChange={(v) => update({ bloom: v })}
+        />
       </Section>
 
       <Section title="Typography">

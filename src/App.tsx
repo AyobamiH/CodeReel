@@ -38,6 +38,7 @@ const DEFAULT_SETTINGS: Settings = {
   dof: 50,
   parallax: 35,
   reflection: 30,
+  bloom: 30,
   animation: 'flip',
   duration: 5,
   speed: 1,

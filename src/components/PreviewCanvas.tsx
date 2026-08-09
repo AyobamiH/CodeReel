@@ -10,6 +10,11 @@ import { buildTimeline, locate } from '../lib/timeline'
 const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3)
 const easeInOutCubic = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2)
 const clamp01 = (t: number) => Math.min(1, Math.max(0, t))
+/** 0..1 alpha → 2-digit hex, for appending to a 6-digit hex colour. */
+const toHex2 = (a: number) =>
+  Math.round(clamp01(a) * 255)
+    .toString(16)
+    .padStart(2, '0')
 
 function TokenSpans({
   tokens,
@@ -541,10 +546,20 @@ export function PreviewCanvas({
 
   const isTransparent = background === 'transparent'
   const shadowA = 0.22 + settings.shadow * 0.004
-  const boxShadow =
+  const dropShadow =
     settings.shadow === 0
-      ? 'none'
+      ? null
       : `0 ${settings.shadow * 0.45}px ${settings.shadow * 1.1}px -${settings.shadow * 0.18}px rgba(0,0,0,${shadowA})`
+
+  // accent bloom: a theme-coloured halo (swatch accent) around the window that breathes.
+  // sin(progress·4π) returns to its start at the loop boundary — deterministic, no wall-clock.
+  const bloomN = settings.bloom / 100
+  const bloomPulse = 0.5 + 0.5 * Math.sin(progress * Math.PI * 4)
+  const bloomGlow =
+    settings.bloom > 0
+      ? `0 0 ${Math.round(30 + 24 * bloomPulse)}px 1px ${theme.swatch[1]}${toHex2(bloomN * (0.5 + 0.22 * bloomPulse))}`
+      : null
+  const boxShadow = [dropShadow, bloomGlow].filter(Boolean).join(', ') || 'none'
 
   // 3D window tilt: the direction pad picks which way it faces, `tilt` sets the angle
   const tilted = settings.tilt > 0 && (settings.tiltX !== 0 || settings.tiltY !== 0)
