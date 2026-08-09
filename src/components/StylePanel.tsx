@@ -215,6 +215,14 @@ export function StylePanel({
           unit="%"
           onChange={(v) => update({ parallax: v })}
         />
+        <Slider
+          label="Reflection"
+          value={settings.reflection}
+          min={0}
+          max={100}
+          unit="%"
+          onChange={(v) => update({ reflection: v })}
+        />
       </Section>
 
       <Section title="Typography">

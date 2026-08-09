@@ -103,6 +103,8 @@ export interface Settings {
   dof: number
   /** parallax backdrop drift intensity (0 = off) */
   parallax: number
+  /** floor reflection strength beneath the window (0 = off) */
+  reflection: number
   animation: AnimationStyle
   duration: number
   speed: number

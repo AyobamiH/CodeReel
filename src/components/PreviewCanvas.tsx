@@ -565,6 +565,14 @@ export function PreviewCanvas({
   const winX = Math.sin(pPhase) * -9 * pAmt // window counter-floats against the backdrop
   const winY = Math.cos(pPhase) * -6 * pAmt
 
+  // floor reflection: a mirrored, faded copy of the window. -webkit-box-reflect mirrors the
+  // actual painted element, so it tracks the reveal + tilt live and is static per frame (export-safe).
+  const reflectAlpha = ((settings.reflection / 100) * 0.55).toFixed(3)
+  const boxReflect =
+    settings.reflection > 0
+      ? `below 2px linear-gradient(transparent 34%, rgba(0,0,0,${reflectAlpha}))`
+      : undefined
+
   return (
     <div
       ref={stageRef}
@@ -628,6 +636,7 @@ export function PreviewCanvas({
                 border: '1px solid rgba(255,255,255,0.08)',
                 transform: windowTilt,
                 transformOrigin: 'center center',
+                WebkitBoxReflect: boxReflect,
               }}
             >
               {settings.chrome && (

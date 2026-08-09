@@ -71,14 +71,17 @@ of the exported frame) and drift via loop-safe sine of `progress`.
 
 ### Tier 2 — 2.5D polish (still pure CSS, still preview-only for now)
 
+- ✅ **Floor reflection** — Done. Mirrored, faded window copy via
+  `-webkit-box-reflect` on the window element (mirrors the actual painted
+  window, so it tracks the reveal + tilt live). Static per frame → export-safe.
+  Style → 3D `reflection` slider.
 - **Accent bloom / glow** that pulses with the caret + reveal frontier — safe
   **if** it pulses off the frontier (`progress`-derived), not a CSS loop.
-- **Floor reflection** — mirrored, faded window copy. Static per frame → trivially safe.
 - **Animated 3D grid / starfield backdrop** — also delivers Tier 1's parallax idea.
   Build drift as `f(progress)`.
 - **Per-token stagger** (currently per-line) + light-sweep across the active line.
 
-Status: not started.
+Status: floor reflection done; bloom / animated backdrop / per-token stagger remaining.
 
 ### Tier 3 — Real 3D (React Three Fiber; bigger lift, parallel renderer)
 
