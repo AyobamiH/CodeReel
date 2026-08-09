@@ -1,6 +1,6 @@
 import { useMemo, type ReactNode } from 'react'
 import type { Settings } from '../lib/types'
-import { ASPECTS, FONTS } from '../lib/types'
+import { ASPECTS, CONSOLE_STATUSES, FONTS } from '../lib/types'
 import { BACKGROUNDS, THEMES } from '../lib/themes'
 import { lineLength, tokenizeLines, type Token } from '../lib/highlight'
 import { useElementSize } from '../lib/usePlayback'
@@ -108,6 +108,29 @@ function CodeRow({
   )
 }
 
+/** Char-by-char reveal state shared by the code typewriter and the console. */
+function typewriterReveal(
+  lines: Token[][],
+  revealT: number,
+): { done: boolean; cells: { chars: number; active: boolean }[] } {
+  const starts: number[] = []
+  let acc = 0
+  for (const line of lines) {
+    starts.push(acc)
+    acc += lineLength(line) + 1
+  }
+  const total = Math.max(1, acc)
+  const revealed = Math.floor(clamp01(revealT) * total)
+  const done = revealT >= 1
+  const cells = lines.map((line, i) => {
+    const len = lineLength(line)
+    const chars = done ? len : Math.max(0, Math.min(len, revealed - starts[i]))
+    const active = !done && revealed >= starts[i] && revealed < starts[i] + len + 1
+    return { chars, active }
+  })
+  return { done, cells }
+}
+
 /** Sequential reveal (typewriter / fade / slide) of one snapshot — the classic motion. */
 function revealRows(
   lines: Token[][],
@@ -119,27 +142,15 @@ function revealRows(
   const n = lines.length
 
   if (animation === 'typewriter') {
-    const starts: number[] = []
-    let acc = 0
-    for (const line of lines) {
-      starts.push(acc)
-      acc += lineLength(line) + 1
-    }
-    const total = Math.max(1, acc)
-    const revealed = Math.floor(revealT * total)
-    const done = revealT >= 1
+    const { done, cells } = typewriterReveal(lines, revealT)
     return lines.map((line, i) => {
-      const len = lineLength(line)
-      const lineChars = Math.max(0, Math.min(len, revealed - starts[i]))
-      const complete = revealed >= starts[i] + len + 1
-      const active = !complete && revealed >= starts[i] && !done
-      const toks = done ? line : sliceLine(line, lineChars)
+      const { chars, active } = cells[i]
       return (
         <CodeRow
           key={i}
           ctx={ctx}
           idx={i}
-          tokens={toks}
+          tokens={sliceLine(line, chars)}
           caret={
             <>
               {active && (
@@ -147,7 +158,7 @@ function revealRows(
                   ▍
                 </span>
               )}
-              {!done && <span className="invisible">{line.map((t) => t.s).join('').slice(lineChars)}</span>}
+              {!done && <span className="invisible">{line.map((t) => t.s).join('').slice(chars)}</span>}
             </>
           }
         />
@@ -253,6 +264,27 @@ function typeInRows(nextLines: Token[][], status: LineStatus[], t: number, playi
   })
 }
 
+function revealConsoleRows(lines: Token[][], revealT: number, playing: boolean, ctx: RowCtx): ReactNode[] {
+  const { done, cells } = typewriterReveal(lines, revealT)
+  return lines.map((line, i) => {
+    const { chars, active } = cells[i]
+    return (
+      <div key={i} className="flex whitespace-pre">
+        <span style={{ color: ctx.caretColor }}>$ </span>
+        <span>
+          <TokenSpans tokens={sliceLine(line, chars)} colors={ctx.colors} fg={ctx.fg} />
+          {active && (
+            <span className={playing ? '' : 'caret-blink'} style={{ color: ctx.caretColor, marginLeft: 1 }}>
+              ▍
+            </span>
+          )}
+          {!done && <span className="invisible">{line.map((tok) => tok.s).join('').slice(chars)}</span>}
+        </span>
+      </div>
+    )
+  })
+}
+
 export function PreviewCanvas({
   settings,
   progress,
@@ -267,6 +299,7 @@ export function PreviewCanvas({
     settings.customBg ?? (BACKGROUNDS.find((b) => b.id === settings.backgroundId) ?? BACKGROUNDS[0]).css
   const font = FONTS.find((f) => f.id === settings.fontId) ?? FONTS[0]
   const aspect = ASPECTS.find((a) => a.id === settings.aspect) ?? ASPECTS[0]
+  const consoleDot = (CONSOLE_STATUSES.find((s) => s.id === settings.consoleStatus) ?? CONSOLE_STATUSES[0]).dot
 
   const isSteps = settings.mode === 'steps' && settings.steps.length > 0
   const lineHeightPx = settings.fontSize * 1.65
@@ -286,6 +319,12 @@ export function PreviewCanvas({
     [settings.code, settings.language],
   )
 
+  // console output tokenized once (always bash), not re-scanned every frame
+  const consoleLines = useMemo(
+    () => (settings.console.trim() !== '' ? tokenizeLines(settings.console, 'bash') : []),
+    [settings.console],
+  )
+
   // steps mode: tokenize every snapshot once
   const stepLines = useMemo(
     () => settings.steps.map((s) => tokenizeLines(s.code, settings.language)),
@@ -300,69 +339,99 @@ export function PreviewCanvas({
     : seqLines.length
   const codeMinHeight = maxLines * lineHeightPx
 
+  // resolve the active phase once — it drives both the code frame and the console
+  const { phase, localT } = locate(timeline, progress)
+
   // build the inner code rows for the current frame
-  let rows: ReactNode
+  let codeRows: ReactNode
   if (!isSteps) {
-    rows = revealRows(seqLines, settings.animation, progress, playing, ctx)
+    codeRows =
+      phase.kind === 'console'
+        ? fullRows(seqLines, ctx)
+        : revealRows(seqLines, settings.animation, localT, playing, ctx)
+  } else if (phase.kind === 'reveal') {
+    codeRows = revealRows(stepLines[0] ?? [], settings.animation, localT, playing, ctx)
+  } else if (phase.kind === 'hold' || phase.kind === 'console') {
+    // during the console phase the final step stays fully revealed
+    codeRows = fullRows(stepLines[phase.step] ?? [], ctx)
   } else {
-    const { phase, localT } = locate(timeline, progress)
-    if (phase.kind === 'reveal') {
-      rows = revealRows(stepLines[0] ?? [], settings.animation, localT, playing, ctx)
-    } else if (phase.kind === 'hold') {
-      rows = fullRows(stepLines[phase.step] ?? [], ctx)
+    // transition from → step
+    const nextLines = stepLines[phase.step] ?? []
+    const prevLines = stepLines[phase.from ?? phase.step] ?? []
+    const style = phase.style ?? 'diff'
+    if (style === 'crossfade') {
+      codeRows = (
+        <div className="relative">
+          <div className="pointer-events-none absolute inset-0" style={{ opacity: 1 - easeOutCubic(localT) }}>
+            {fullRows(prevLines, ctx)}
+          </div>
+          <div style={{ opacity: easeOutCubic(localT) }}>{fullRows(nextLines, ctx)}</div>
+        </div>
+      )
+    } else if (style === 'flip3d') {
+      // card flip: the outgoing snapshot swings to edge-on, the incoming swings in from the other side
+      const showOut = localT < 0.5
+      const outY = easeInOutCubic(clamp01(localT / 0.5)) * 90
+      const inY = -90 + easeInOutCubic(clamp01((localT - 0.5) / 0.5)) * 90
+      codeRows = (
+        <div className="relative" style={{ perspective: '1700px' }}>
+          <div
+            className="pointer-events-none absolute inset-0"
+            style={{
+              transform: `rotateY(${outY}deg)`,
+              transformOrigin: 'center',
+              backfaceVisibility: 'hidden',
+              opacity: showOut ? 1 : 0,
+            }}
+          >
+            {fullRows(prevLines, ctx)}
+          </div>
+          <div
+            style={{
+              transform: `rotateY(${inY}deg)`,
+              transformOrigin: 'center',
+              backfaceVisibility: 'hidden',
+              opacity: showOut ? 0 : 1,
+            }}
+          >
+            {fullRows(nextLines, ctx)}
+          </div>
+        </div>
+      )
     } else {
-      // transition from → step
-      const nextLines = stepLines[phase.step] ?? []
-      const prevLines = stepLines[phase.from ?? phase.step] ?? []
-      const style = phase.style ?? 'diff'
-      if (style === 'crossfade') {
-        rows = (
-          <div className="relative">
-            <div className="pointer-events-none absolute inset-0" style={{ opacity: 1 - easeOutCubic(localT) }}>
-              {fullRows(prevLines, ctx)}
-            </div>
-            <div style={{ opacity: easeOutCubic(localT) }}>{fullRows(nextLines, ctx)}</div>
-          </div>
-        )
-      } else if (style === 'flip3d') {
-        // card flip: the outgoing snapshot swings to edge-on, the incoming swings in from the other side
-        const showOut = localT < 0.5
-        const outY = easeInOutCubic(clamp01(localT / 0.5)) * 90
-        const inY = -90 + easeInOutCubic(clamp01((localT - 0.5) / 0.5)) * 90
-        rows = (
-          <div className="relative" style={{ perspective: '1700px' }}>
-            <div
-              className="pointer-events-none absolute inset-0"
-              style={{
-                transform: `rotateY(${outY}deg)`,
-                transformOrigin: 'center',
-                backfaceVisibility: 'hidden',
-                opacity: showOut ? 1 : 0,
-              }}
-            >
-              {fullRows(prevLines, ctx)}
-            </div>
-            <div
-              style={{
-                transform: `rotateY(${inY}deg)`,
-                transformOrigin: 'center',
-                backfaceVisibility: 'hidden',
-                opacity: showOut ? 0 : 1,
-              }}
-            >
-              {fullRows(nextLines, ctx)}
-            </div>
-          </div>
-        )
-      } else {
-        const status = diffLineStatus(settings.steps[phase.from ?? 0].code, settings.steps[phase.step].code)
-        rows =
-          style === 'typewriter'
-            ? typeInRows(nextLines, status, localT, playing, ctx)
-            : diffRows(nextLines, status, localT, ctx)
-      }
+      const status = diffLineStatus(settings.steps[phase.from ?? 0].code, settings.steps[phase.step].code)
+      codeRows =
+        style === 'typewriter'
+          ? typeInRows(nextLines, status, localT, playing, ctx)
+          : diffRows(nextLines, status, localT, ctx)
     }
   }
+
+  // the console section rides below the code in both modes, typing out on its phase
+  const rows = (
+    <>
+      <div style={{ minHeight: codeMinHeight }}>{codeRows}</div>
+      {settings.console.trim() !== '' && (
+        <div
+          className="mt-5 overflow-hidden rounded-lg border border-white/10"
+          style={{
+            background: 'rgba(0,0,0,0.2)',
+            opacity: phase.kind === 'console' ? 1 : 0,
+            transform: phase.kind === 'console' ? undefined : 'translateY(10px)',
+            transition: 'opacity 180ms ease, transform 180ms ease',
+          }}
+        >
+          <div className="flex items-center gap-2 border-b border-white/10 px-3 py-2 text-[10px] font-medium uppercase tracking-[0.16em]" style={{ color: theme.lineNumber }}>
+            <span className="h-2 w-2 rounded-full" style={{ background: consoleDot }} />
+            Console
+          </div>
+          <div className="px-3 py-3" style={{ minHeight: lineHeightPx * Math.max(1, consoleLines.length) + 24 }}>
+            {revealConsoleRows(consoleLines, phase.kind === 'console' ? localT : 0, playing, ctx)}
+          </div>
+        </div>
+      )}
+    </>
+  )
 
   // stage → canvas sizing
   const [stageRef, stage] = useElementSize<HTMLDivElement>()

@@ -41,7 +41,8 @@ npm run test:e2e:ui
 ## What's inside
 
 - **Code input** (left panel): editable snippet, 9-language selector with per-language
-  sample code, hand-rolled syntax highlighter (`src/lib/highlight.ts`).
+  sample code, and a hand-rolled syntax highlighter (`src/lib/highlight.ts`). Upload
+  UTF-8 source files up to 1 MB to replace the current snippet.
 - **Animated preview** (center): styled macOS-style code window rendered on an
   aspect-ratio canvas, animated with typewriter / fade-in / slide motion presets.
   The window auto-scales to fit the canvas.
