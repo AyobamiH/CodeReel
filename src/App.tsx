@@ -7,6 +7,7 @@ import { TopBar } from './components/TopBar'
 import { CodePanel, makeDefaultSteps } from './components/CodePanel'
 import { StylePanel } from './components/StylePanel'
 import { PreviewCanvas } from './components/PreviewCanvas'
+import { PreviewPlaybackSurface } from './components/PreviewPlaybackSurface'
 import { PlaybackBar } from './components/PlaybackBar'
 import { ExportModal } from './components/ExportModal'
 
@@ -125,11 +126,13 @@ export default function App() {
           setActiveStep={setActiveStep}
         />
         <main className="flex min-w-0 flex-1 flex-col">
-          <PreviewCanvas
-            settings={settings}
-            progress={playback.progress}
-            playing={playback.playing}
-          />
+          <PreviewPlaybackSurface playing={playback.playing} onTogglePlayback={toggle}>
+            <PreviewCanvas
+              settings={settings}
+              progress={playback.progress}
+              playing={playback.playing}
+            />
+          </PreviewPlaybackSurface>
           <PlaybackBar
             settings={settings}
             update={update}

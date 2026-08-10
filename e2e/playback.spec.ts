@@ -11,9 +11,6 @@ test.describe('Playback', () => {
   })
 
   test('space pauses and resumes, R restarts', async ({ page }) => {
-    // move focus off any control so the window-level shortcuts fire
-    await page.getByRole('main').click({ position: { x: 4, y: 4 } })
-
     // the take auto-plays on load
     await expect.poll(() => currentTime(page)).toBeGreaterThan(0)
 
@@ -32,6 +29,37 @@ test.describe('Playback', () => {
     const before = await currentTime(page)
     await page.keyboard.press('r')
     await expect.poll(() => currentTime(page)).toBeLessThan(before)
+  })
+
+  test('preview and playback bar share the same playback state', async ({ page }) => {
+    const preview = page.getByRole('group', { name: 'Code preview' })
+    const previewPlayback = preview.getByRole('button', { name: 'Preview playback' })
+    const playbackBarToggle = page.getByTitle('Play / pause (Space)')
+
+    await expect(previewPlayback).toHaveAttribute('aria-pressed', 'true')
+
+    await preview.click()
+    await expect(previewPlayback).toHaveAttribute('aria-pressed', 'false')
+
+    await playbackBarToggle.click()
+    await expect(previewPlayback).toHaveAttribute('aria-pressed', 'true')
+
+    // The nested preview button owns its click; the surface must not toggle a second time.
+    await previewPlayback.click()
+    await expect(previewPlayback).toHaveAttribute('aria-pressed', 'false')
+  })
+
+  test('preview playback control supports keyboard activation', async ({ page }) => {
+    const previewPlayback = page.getByRole('button', { name: 'Preview playback' })
+
+    await previewPlayback.focus()
+    await expect(previewPlayback).toHaveAttribute('aria-pressed', 'true')
+
+    await page.keyboard.press('Space')
+    await expect(previewPlayback).toHaveAttribute('aria-pressed', 'false')
+
+    await page.keyboard.press('Enter')
+    await expect(previewPlayback).toHaveAttribute('aria-pressed', 'true')
   })
 
   test('duration selector drives the total timeline length', async ({ page }) => {
