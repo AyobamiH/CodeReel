@@ -4,7 +4,7 @@ UI-only prototype of a tool that turns a code snippet into a short animated vide
 clip (think carbon.now.sh, but the output is motion). No backend, no real encoding —
 the export flow is mocked.
 
-<img width="1000" height="561" alt="Image" src="https://github.com/user-attachments/assets/6d1d0769-f704-47c3-b029-c57b8dd156af" />
+https://github.com/user-attachments/assets/11f73999-22a9-414e-8097-159ab6d68bdc
 
 ## Features
 
