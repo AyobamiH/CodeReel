@@ -58,8 +58,8 @@ npm run test:e2e:ui
   The window auto-scales to fit the canvas.
 - **Playback bar**: play/pause/restart/loop, scrubbable timeline, duration and
   speed controls. Space = play/pause, R = restart.
-- **Style panel** (right): 6 themes (Dracula, GitHub Dark, Nord, Solarized, Tokyo
-  Night, Monokai), background gradients + custom color, window chrome + title,
+- **Style panel** (right): 7 themes (Dracula, GitHub Dark, Nord, Solarized, Tokyo
+  Night, Monokai, Catppuccin Mocha), background gradients + custom color, window chrome + title,
   line numbers, corner radius, shadow, padding, font family/size.
 - **Export bar** (top): 16:9 / 1:1 / 9:16 aspect presets, MP4 / GIF / WebM format
   buttons, and a mocked export modal with phased progress.
