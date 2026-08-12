@@ -35,6 +35,11 @@ test.describe('Playback', () => {
   })
 
   test('duration selector drives the total timeline length', async ({ page }) => {
+    // isolate the duration from the end-hold extension (which also adds to the total)
+    const endHold = page.locator('select', {
+      has: page.locator('option', { hasText: 'Off' }),
+    })
+    await endHold.selectOption({ label: 'Off' })
     const durationSelect = page.locator('select', {
       has: page.locator('option', { hasText: '15s' }),
     })

@@ -92,7 +92,7 @@ export function PlaybackBar({
       )}
 
       {/* controls */}
-      <div className="mt-2.5 flex items-center gap-4">
+      <div className="mt-2.5 flex flex-wrap items-center gap-x-4 gap-y-2.5">
         <div className="flex items-center gap-1.5">
           {isSteps && (
             <button
