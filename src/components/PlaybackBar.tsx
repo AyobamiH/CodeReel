@@ -235,7 +235,7 @@ export function PlaybackBar({
             <Select
               className="w-[76px]"
               value={String(settings.outro)}
-              options={[0, 1.5, 3, 5].map((s) => ({
+              options={[0, 1.5, 3, 5, 10].map((s) => ({
                 value: String(s),
                 label: s === 0 ? 'Off' : `${s}s`,
               }))}

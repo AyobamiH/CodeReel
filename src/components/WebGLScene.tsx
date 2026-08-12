@@ -25,6 +25,23 @@ const clamp01 = (t: number) => Math.min(1, Math.max(0, t))
 // map a step transition style → shader mode
 const MODE: Record<string, number> = { crossfade: 0, diff: 1, typewriter: 2, flip3d: 3 }
 
+// scene FX: index for the shaders + optional accent-colour override + bloom boost
+const FX: Record<string, number> = { none: 0, glitch: 1, matrix: 2, halloween: 3, neon: 4 }
+const FX_ACCENT: Record<string, string | null> = {
+  none: null,
+  glitch: '#a0f0ff',
+  matrix: '#39ff14',
+  halloween: '#ff7518',
+  neon: '#ff2fd0',
+}
+const FX_BLOOM: Record<string, number> = {
+  none: 0,
+  glitch: 0.3,
+  matrix: 0.4,
+  halloween: 0.2,
+  neon: 0.9,
+}
+
 const VERT = /* glsl */ `
   varying vec2 vUv;
   void main() {
@@ -47,12 +64,15 @@ const FRAG = /* glsl */ `
   uniform float uDof;        // depth-of-field: blur on the reveal frontier (0..1)
   uniform float uReflect;    // 0 = card, 1 = floor reflection (mirror + fade)
   uniform float uReflectStr; // reflection strength (0..1)
+  uniform int   uFx;         // scene FX: 0 none, 1 glitch, 2 matrix, 3 halloween, 4 neon
+  uniform float uFxT;        // progress-driven FX phase (0..1) — deterministic, no clock
 
   float hash(vec2 p) {
     p = fract(p * vec2(123.34, 456.21));
     p += dot(p, p + 45.32);
     return fract(p.x * p.y);
   }
+  float hash1(float n) { return fract(sin(n * 127.1) * 43758.5453); }
 
   // top-to-bottom reveal with a soft glowing frontier; revealing band emerges
   // from soft depth (mip-bias defocus) and sharpens as it settles — the DOF cue.
@@ -122,6 +142,36 @@ const FRAG = /* glsl */ `
       col.rgb *= mix(0.8, 1.0, vig);
     }
 
+    // --- scene FX colour treatment on the card (deterministic in uFxT) ---
+    if (uFx == 1) {
+      // GLITCH: keep the code readable (like Matrix) — a light constant chromatic
+      // aberration + faint scanlines + an occasional subtle shimmer. The bold
+      // datamosh lives in the backdrop, so the card is never smeared over.
+      col.rgb *= 1.0 - 0.06 * step(0.5, fract(vUv.y * 240.0));
+      if (uMix < 0.001 && uReveal > 0.999) {
+        float o = 0.0016;
+        float rr = texture2D(uTexA, uv + vec2(o, 0.0)).r;
+        float bb = texture2D(uTexA, uv - vec2(o, 0.0)).b;
+        col.rgb = mix(col.rgb, vec3(rr, col.g, bb), 0.55);
+      }
+      float bnd = floor(vUv.y * 22.0);
+      float g = hash(vec2(bnd, floor(uFxT * 20.0)));
+      col.rgb += col.a * step(0.9, g) * 0.06; // faint flicker, no displacement
+    } else if (uFx == 2) {
+      // MATRIX: green colour grade + faint scanlines
+      float lum = dot(col.rgb, vec3(0.299, 0.587, 0.114));
+      col.rgb = mix(col.rgb, vec3(0.10, 1.0, 0.35) * lum * 1.15, 0.45);
+      col.rgb *= 1.0 - 0.07 * step(0.5, fract(vUv.y * 200.0));
+    } else if (uFx == 3) {
+      // HALLOWEEN: warm ember grade + candle flicker
+      col.rgb = mix(col.rgb, col.rgb * vec3(1.25, 0.82, 0.55), 0.5);
+      col.rgb *= 0.9 + 0.1 * hash1(floor(uFxT * 30.0));
+    } else if (uFx == 4) {
+      // NEON: punchy saturation (bloom does the rest)
+      float lum = dot(col.rgb, vec3(0.299, 0.587, 0.114));
+      col.rgb = mix(vec3(lum), col.rgb, 1.5);
+    }
+
     gl_FragColor = col;
   }
 `
@@ -145,6 +195,99 @@ function makeCardMaterial(reflect: boolean): THREE.ShaderMaterial {
       uDof: { value: 0 },
       uReflect: { value: reflect ? 1 : 0 },
       uReflectStr: { value: 0 },
+      uFx: { value: 0 },
+      uFxT: { value: 0 },
+    },
+  })
+}
+
+/** The themed backdrop shader — matrix rain / halloween fog / glitch bands / neon grid. */
+const BACKDROP_FRAG = /* glsl */ `
+  precision highp float;
+  varying vec2 vUv;
+  uniform int   uFx;
+  uniform float uFxT;    // progress 0..1
+  uniform float uAspect; // view aspect (w/h), keeps cells square
+  uniform vec3  uColor;  // accent colour
+
+  float hash(vec2 p) {
+    p = fract(p * vec2(123.34, 456.21));
+    p += dot(p, p + 45.32);
+    return fract(p.x * p.y);
+  }
+  float hash1(float n) { return fract(sin(n * 127.1) * 43758.5453); }
+
+  void main() {
+    vec2 uv = vUv;
+    vec3 col = vec3(0.0);
+    float a = 1.0;
+
+    if (uFx == 2) {
+      // MATRIX digital rain (block glyphs)
+      float cols = 46.0;
+      float rows = 30.0;
+      vec2 g = vec2(uv.x * uAspect, uv.y);
+      float ci = floor(g.x * cols);
+      float ri = floor(g.y * rows);
+      float speed = 0.6 + hash1(ci) * 1.6;
+      float head = mod(-uFxT * speed * rows + hash1(ci) * rows, rows);
+      float dist = mod(head - ri, rows);
+      float glyph = step(0.45, hash(vec2(ci, ri + floor(uFxT * 22.0 * speed))));
+      float trail = clamp(1.0 - dist / 11.0, 0.0, 1.0);
+      col = vec3(0.12, 1.0, 0.34) * glyph * trail * 0.75;
+      col += vec3(0.75, 1.0, 0.85) * step(dist, 0.9); // bright head
+      col += vec3(0.0, 0.06, 0.02);                   // faint green base
+    } else if (uFx == 3) {
+      // HALLOWEEN fog + rising embers
+      vec3 base = mix(vec3(0.06, 0.02, 0.09), vec3(0.14, 0.05, 0.02), uv.y);
+      float d = length((uv - vec2(0.5, 0.66)) * vec2(uAspect, 1.0));
+      float glow = smoothstep(0.7, 0.0, d) * 0.45;
+      float embers = 0.0;
+      for (int i = 0; i < 10; i++) {
+        float fi = float(i);
+        float ex = hash1(fi * 3.13);
+        float ey = fract(hash1(fi * 7.71) - uFxT * (0.25 + hash1(fi) * 0.5));
+        float sway = sin((ey + fi) * 6.28 + uFxT * 6.28) * 0.02;
+        float ed = length((uv - vec2(ex + sway, ey)) * vec2(uAspect, 1.0));
+        embers += smoothstep(0.018, 0.0, ed) * (0.6 + 0.4 * hash1(fi));
+      }
+      col = base + vec3(1.0, 0.5, 0.12) * glow + vec3(1.0, 0.55, 0.15) * embers;
+      col *= 0.86 + 0.14 * hash1(floor(uFxT * 36.0)); // flicker
+    } else if (uFx == 1) {
+      // GLITCH datamosh bands + scanlines
+      float band = floor(uv.y * 42.0);
+      float n = hash(vec2(band, floor(uFxT * 26.0)));
+      float on = step(0.86, n);
+      col = mix(vec3(0.02, 0.02, 0.05), uColor * 0.6, on * 0.7);
+      float slice = hash(vec2(floor(uv.y * 8.0), floor(uFxT * 30.0)));
+      col += uColor * step(0.93, slice) * 0.3;
+      col *= 1.0 - 0.16 * step(0.5, fract(uv.y * 200.0));
+    } else if (uFx == 4) {
+      // NEON perspective grid
+      vec2 g = vec2((uv.x - 0.5) * uAspect, uv.y);
+      vec2 grid = abs(fract(g * 12.0 + vec2(0.0, -uFxT * 3.0)) - 0.5);
+      float line = smoothstep(0.5, 0.46, min(grid.x, grid.y));
+      col = uColor * line * (0.1 + 0.7 * uv.y);
+      col += uColor * 0.05;
+    } else {
+      a = 0.0;
+    }
+
+    gl_FragColor = vec4(col, a);
+  }
+`
+
+function makeBackdropMaterial(): THREE.ShaderMaterial {
+  return new THREE.ShaderMaterial({
+    vertexShader: VERT,
+    fragmentShader: BACKDROP_FRAG,
+    transparent: true,
+    depthWrite: false,
+    uniforms: {
+      uFx: { value: 0 },
+      uFxT: { value: 0 },
+      uAspect: { value: 1.6 },
+      uColor: { value: new THREE.Color('#7c83fd') },
     },
   })
 }
@@ -234,6 +377,7 @@ function Rig({
   const glowRef = useRef<THREE.Mesh>(null)
   const glowMatRef = useRef<THREE.MeshBasicMaterial>(null)
   const shadowMatRef = useRef<THREE.MeshBasicMaterial>(null)
+  const backdropRef = useRef<THREE.Mesh>(null)
 
   const theme = THEMES.find((t) => t.id === settings.themeId) ?? THEMES[0]
 
@@ -243,12 +387,14 @@ function Rig({
   // the instance guarantees our per-frame writes land on the real uniforms.
   const material = useMemo(() => makeCardMaterial(false), [])
   const reflectMat = useMemo(() => makeCardMaterial(true), [])
+  const backdropMat = useMemo(() => makeBackdropMaterial(), [])
   useEffect(
     () => () => {
       material.dispose()
       reflectMat.dispose()
+      backdropMat.dispose()
     },
-    [material, reflectMat],
+    [material, reflectMat, backdropMat],
   )
 
   const timeline = useMemo(() => buildTimeline(settings), [settings])
@@ -257,6 +403,7 @@ function Rig({
   useLayoutEffect(() => {
     const { phase, localT } = locate(timeline, progress)
     const f = computeFrame(phase, localT, textures, isSteps)
+    const fx = FX[settings.sceneFx] ?? 0
 
     // console / outro: swap in the dynamic texture that includes the console output
     // (console phase types it out; outro freezes it fully typed)
@@ -275,6 +422,8 @@ function Rig({
       u.uMode.value = f.mode
       u.uReveal.value = f.reveal
       u.uDof.value = settings.dof / 100
+      u.uFx.value = fx
+      u.uFxT.value = progress
     }
     // sheen direction follows the tilt so the "light" tracks the card angle
     material.uniforms.uSheen.value.set(0.5 + settings.tiltX * 0.5, 0.5 + settings.tiltY * 0.5)
@@ -306,9 +455,11 @@ function Rig({
     }
 
     // --- accent glow behind the card: breathes with sin(progress·4π), like the DOM bloom ---
+    // a scene-FX accent colour (matrix green, halloween orange, …) overrides the theme swatch.
+    const fxAccent = FX_ACCENT[settings.sceneFx]
     if (glowRef.current && glowMatRef.current) {
       const pulse = 0.5 + 0.5 * Math.sin(progress * Math.PI * 4)
-      glowMatRef.current.color.set(theme.swatch[1])
+      glowMatRef.current.color.set(fxAccent ?? theme.swatch[1])
       glowMatRef.current.opacity =
         settings.bloom > 0 ? (settings.bloom / 100) * (0.22 + 0.16 * pulse) : 0
       const sc = 1.12 + 0.05 * pulse
@@ -328,6 +479,21 @@ function Rig({
     let fit = planeH / 2 / Math.tan(fov / 2)
     if (planeAspect > viewAspect) fit = planeW / 2 / (Math.tan(fov / 2) * viewAspect)
     fit *= 1.1 + (settings.padding / 140) * 0.6 // breathing room, scaled by padding
+
+    // --- themed backdrop: fill the frustum behind the card, drive its shader from progress ---
+    if (backdropRef.current) {
+      backdropMat.visible = fx !== 0
+      const u = backdropMat.uniforms
+      u.uFx.value = fx
+      u.uFxT.value = progress
+      u.uAspect.value = viewAspect
+      u.uColor.value.set(fxAccent ?? theme.swatch[1])
+      const bz = -6
+      const dist = fit + fit * 0.34 - bz // farthest camera z (reveal start) → plane, so it always covers
+      const vh = 2 * dist * Math.tan(fov / 2)
+      backdropRef.current.position.z = bz
+      backdropRef.current.scale.set(vh * viewAspect * 1.1, vh * 1.1, 1)
+    }
 
     let dolly = 0
     if (phase.kind === 'reveal') {
@@ -355,6 +521,7 @@ function Rig({
     camera,
     material,
     reflectMat,
+    backdropMat,
     consoleTex,
     redrawConsole,
     invalidate,
@@ -362,6 +529,10 @@ function Rig({
 
   return (
     <>
+      {/* themed scene-FX backdrop — filled + scaled in the effect above */}
+      <mesh ref={backdropRef} material={backdropMat}>
+        <planeGeometry args={[1, 1, 1, 1]} />
+      </mesh>
       {/* drop shadow — dark radial behind + slightly below the card */}
       <mesh position={[0, -0.12 * planeH, -0.45]} scale={[1.15, 1.1, 1]}>
         <planeGeometry args={[planeW, planeH, 1, 1]} />
@@ -524,7 +695,7 @@ export function WebGLScene({
     [textures, consoleTex],
   )
 
-  const bloomIntensity = 0.35 + (settings.bloom / 100) * 1.1
+  const bloomIntensity = 0.35 + (settings.bloom / 100) * 1.1 + (FX_BLOOM[settings.sceneFx] ?? 0)
 
   return (
     <div

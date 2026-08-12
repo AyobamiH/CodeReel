@@ -17,6 +17,7 @@ import { ExportModal } from './components/ExportModal'
 
 const DEFAULT_SETTINGS: Settings = {
   renderer: 'dom',
+  sceneFx: 'none',
   mode: 'sequence',
   code: SAMPLES.typescript,
   console: '',
@@ -26,7 +27,7 @@ const DEFAULT_SETTINGS: Settings = {
   transition: 'diff',
   stepHold: 1.2,
   transitionDur: 0.8,
-  outro: 0,
+  outro: 3,
   language: 'typescript',
   themeId: 'dracula',
   backgroundId: 'aurora',

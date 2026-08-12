@@ -12,8 +12,8 @@ import {
   Square,
   type LucideIcon,
 } from 'lucide-react'
-import type { Settings } from '../lib/types'
-import { FONTS } from '../lib/types'
+import type { Settings, SceneFx } from '../lib/types'
+import { FONTS, SCENE_FX } from '../lib/types'
 import { BACKGROUNDS, THEMES } from '../lib/themes'
 import { Row, Section, Segmented, Select, Slider, Toggle } from './ui'
 
@@ -181,6 +181,18 @@ export function StylePanel({
       </Section>
 
       <Section title="3D">
+        {settings.renderer === 'webgl' && (
+          <div>
+            <div className="mb-1.5 text-[13px] text-zinc-400">
+              Scene FX <span className="text-zinc-600">(WebGL)</span>
+            </div>
+            <Select
+              value={settings.sceneFx}
+              options={SCENE_FX.map((f) => ({ value: f.id, label: f.label }))}
+              onChange={(v) => update({ sceneFx: v as SceneFx })}
+            />
+          </div>
+        )}
         <div>
           <div className="mb-1.5 text-[13px] text-zinc-400">Perspective</div>
           <div className="grid w-[108px] grid-cols-3 gap-1">

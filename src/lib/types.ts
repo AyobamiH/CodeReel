@@ -23,6 +23,17 @@ export type InputMode = 'sequence' | 'steps'
 /** Which preview renderer draws the frame: the DOM/CSS renderer or the WebGL (R3F) one. */
 export type Renderer = 'dom' | 'webgl'
 
+/** Themed scene effect for the WebGL renderer (backdrop + card colour treatment). */
+export type SceneFx = 'none' | 'glitch' | 'matrix' | 'halloween' | 'neon'
+
+export const SCENE_FX: { id: SceneFx; label: string }[] = [
+  { id: 'none', label: 'None' },
+  { id: 'glitch', label: 'Glitch' },
+  { id: 'matrix', label: 'Matrix' },
+  { id: 'halloween', label: 'Halloween' },
+  { id: 'neon', label: 'Neon' },
+]
+
 /** How a step reveals its inserted code relative to the previous step. */
 export type TransitionStyle = 'diff' | 'crossfade' | 'typewriter' | 'flip3d'
 
@@ -69,6 +80,8 @@ export const FONTS: { id: string; label: string; stack: string }[] = [
 export interface Settings {
   /** which preview renderer draws the frame (DOM/CSS or WebGL) */
   renderer: Renderer
+  /** themed scene effect for the WebGL renderer */
+  sceneFx: SceneFx
   // input
   mode: InputMode
   code: string
