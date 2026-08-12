@@ -15,7 +15,7 @@ import {
 import type { Settings } from '../lib/types'
 import { FONTS } from '../lib/types'
 import { BACKGROUNDS, THEMES } from '../lib/themes'
-import { Row, Section, Select, Slider, Toggle } from './ui'
+import { Row, Section, Segmented, Select, Slider, Toggle } from './ui'
 
 /** 3×3 pad of tilt directions; (0,0) is face-on. */
 const TILT_PAD: { x: number; y: number; Icon: LucideIcon; title: string }[] = [
@@ -43,6 +43,19 @@ export function StylePanel({
         <Paintbrush className="h-4 w-4 text-accent-400" />
         Style
       </div>
+
+      <Section title="Renderer">
+        <Row label="Engine">
+          <Segmented
+            value={settings.renderer}
+            onChange={(v) => update({ renderer: v })}
+            options={[
+              { value: 'dom', label: 'DOM', title: 'CSS/DOM renderer' },
+              { value: 'webgl', label: 'WebGL 3D', title: 'React Three Fiber renderer' },
+            ]}
+          />
+        </Row>
+      </Section>
 
       <Section title="Theme">
         <div className="grid grid-cols-2 gap-2">

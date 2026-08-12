@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import type { Settings } from './lib/types'
 import { SAMPLES } from './lib/samples'
 import { usePlayback } from './lib/usePlayback'
@@ -7,10 +7,16 @@ import { TopBar } from './components/TopBar'
 import { CodePanel, makeDefaultSteps } from './components/CodePanel'
 import { StylePanel } from './components/StylePanel'
 import { PreviewCanvas } from './components/PreviewCanvas'
+// WebGL renderer is opt-in; lazy-load it so the three.js/R3F bundle isn't paid for
+// unless the user switches to the WebGL 3D engine.
+const WebGLScene = lazy(() =>
+  import('./components/WebGLScene').then((m) => ({ default: m.WebGLScene })),
+)
 import { PlaybackBar } from './components/PlaybackBar'
 import { ExportModal } from './components/ExportModal'
 
 const DEFAULT_SETTINGS: Settings = {
+  renderer: 'dom',
   mode: 'sequence',
   code: SAMPLES.typescript,
   console: '',
@@ -20,6 +26,7 @@ const DEFAULT_SETTINGS: Settings = {
   transition: 'diff',
   stepHold: 1.2,
   transitionDur: 0.8,
+  outro: 0,
   language: 'typescript',
   themeId: 'dracula',
   backgroundId: 'aurora',
@@ -125,11 +132,27 @@ export default function App() {
           setActiveStep={setActiveStep}
         />
         <main className="flex min-w-0 flex-1 flex-col">
-          <PreviewCanvas
-            settings={settings}
-            progress={playback.progress}
-            playing={playback.playing}
-          />
+          {settings.renderer === 'webgl' ? (
+            <Suspense
+              fallback={
+                <div className="stage-grid flex min-h-0 flex-1 items-center justify-center text-sm text-zinc-500">
+                  Loading 3D renderer…
+                </div>
+              }
+            >
+              <WebGLScene
+                settings={settings}
+                progress={playback.progress}
+                playing={playback.playing}
+              />
+            </Suspense>
+          ) : (
+            <PreviewCanvas
+              settings={settings}
+              progress={playback.progress}
+              playing={playback.playing}
+            />
+          )}
           <PlaybackBar
             settings={settings}
             update={update}

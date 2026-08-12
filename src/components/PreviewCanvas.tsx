@@ -478,12 +478,12 @@ export function PreviewCanvas({
   let codeRows: ReactNode
   if (!isSteps) {
     codeRows =
-      phase.kind === 'console'
+      phase.kind === 'console' || phase.kind === 'outro'
         ? fullRows(seqLines, ctx)
         : revealRows(seqLines, settings.animation, localT, playing, ctx)
   } else if (phase.kind === 'reveal') {
     codeRows = revealRows(stepLines[0] ?? [], settings.animation, localT, playing, ctx)
-  } else if (phase.kind === 'hold' || phase.kind === 'console') {
+  } else if (phase.kind === 'hold' || phase.kind === 'console' || phase.kind === 'outro') {
     // during the console phase the final step stays fully revealed
     codeRows = fullRows(stepLines[phase.step] ?? [], ctx)
   } else {
@@ -551,8 +551,9 @@ export function PreviewCanvas({
       className="mt-5 overflow-hidden rounded-lg border border-white/10"
       style={{
         background: 'rgba(0,0,0,0.2)',
-        opacity: phase.kind === 'console' ? 1 : 0,
-        transform: phase.kind === 'console' ? undefined : 'translateY(10px)',
+        opacity: phase.kind === 'console' || phase.kind === 'outro' ? 1 : 0,
+        transform:
+          phase.kind === 'console' || phase.kind === 'outro' ? undefined : 'translateY(10px)',
         transition: 'opacity 180ms ease, transform 180ms ease',
       }}
     >
@@ -567,7 +568,12 @@ export function PreviewCanvas({
         className="px-3 py-3"
         style={{ minHeight: lineHeightPx * Math.max(1, consoleLines.length) + 24 }}
       >
-        {revealConsoleRows(consoleLines, phase.kind === 'console' ? localT : 0, playing, ctx)}
+        {revealConsoleRows(
+          consoleLines,
+          phase.kind === 'console' ? localT : phase.kind === 'outro' ? 1 : 0,
+          playing,
+          ctx,
+        )}
       </div>
     </div>
   )
@@ -627,6 +633,14 @@ export function PreviewCanvas({
   const dotY = Math.cos(pPhase) * 24 * pAmt
   const winX = Math.sin(pPhase) * -9 * pAmt // window counter-floats against the backdrop
   const winY = Math.cos(pPhase) * -6 * pAmt
+
+  // outro freeze-frame: the finished window gently hovers (figure-eight bob + breath).
+  // sines start/end at 0 over localT 0→1, so the hover is seamless on loop.
+  const hovering = phase.kind === 'outro'
+  const hT = hovering ? localT * Math.PI * 2 : 0
+  const hoverX = hovering ? Math.sin(hT) * 10 : 0
+  const hoverY = hovering ? Math.sin(hT * 2) * 6 : 0
+  const hoverScale = hovering ? 1 + Math.sin(hT) * 0.008 : 1
 
   // floor reflection: an explicit, content-fitted mirror of the window rendered just below it, so it
   // hugs the visible code instead of the reserved full-height box (which left a floating gap for
@@ -748,7 +762,9 @@ export function PreviewCanvas({
 
           <div
             style={{
-              transform: `${parOn ? `translate(${winX}px, ${winY}px) ` : ''}scale(${scale})`,
+              transform: `${parOn ? `translate(${winX}px, ${winY}px) ` : ''}${
+                hovering ? `translate(${hoverX}px, ${hoverY}px) ` : ''
+              }scale(${(scale * hoverScale).toFixed(4)})`,
               perspective: tilted ? '1600px' : undefined,
             }}
           >

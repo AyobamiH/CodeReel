@@ -1,7 +1,7 @@
 import type { Settings, TransitionStyle } from './types'
 
 export interface Phase {
-  kind: 'reveal' | 'hold' | 'trans' | 'console'
+  kind: 'reveal' | 'hold' | 'trans' | 'console' | 'outro'
   /** the step index this phase resolves to (the step being revealed / held / arrived at) */
   step: number
   /** for 'trans': the step we are coming from */
@@ -36,11 +36,16 @@ export function buildTimeline(settings: Settings): Timeline {
   // only reserve console time when there's actual output to type out
   const hasConsole = settings.console.trim() !== ''
   const consoleDur = Math.max(0.1, settings.consoleDur)
+  // freeze-frame extension at the very end (0 = off)
+  const outroDur = Math.max(0, settings.outro)
 
   if (settings.mode === 'sequence') {
     phases.push({ kind: 'reveal', step: 0, dur: Math.max(0.1, duration) })
     if (hasConsole) {
       phases.push({ kind: 'console', step: 0, dur: consoleDur })
+    }
+    if (outroDur > 0) {
+      phases.push({ kind: 'outro', step: 0, dur: outroDur })
     }
     return { phases, total: phases.reduce((s, p) => s + p.dur, 0) || 1 }
   }
@@ -59,9 +64,14 @@ export function buildTimeline(settings: Settings): Timeline {
     phases.push({ kind: 'hold', step: i, dur: Math.max(0, stepHold) })
   }
 
+  const lastStep = Math.max(0, steps.length - 1)
   // console types out after the final step has landed
   if (hasConsole) {
-    phases.push({ kind: 'console', step: Math.max(0, steps.length - 1), dur: consoleDur })
+    phases.push({ kind: 'console', step: lastStep, dur: consoleDur })
+  }
+  // freeze-frame extension holds the finished result at the end
+  if (outroDur > 0) {
+    phases.push({ kind: 'outro', step: lastStep, dur: outroDur })
   }
 
   const total = phases.reduce((s, p) => s + p.dur, 0) || 1

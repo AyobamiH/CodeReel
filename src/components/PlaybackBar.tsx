@@ -226,6 +226,23 @@ export function PlaybackBar({
             />
           </div>
           <div className="flex items-center gap-2">
+            <span
+              className="text-[11px] font-medium tracking-wide text-zinc-500 uppercase"
+              title="Freeze-frame hold at the end — the finished result lingers and gently hovers"
+            >
+              End hold
+            </span>
+            <Select
+              className="w-[76px]"
+              value={String(settings.outro)}
+              options={[0, 1.5, 3, 5].map((s) => ({
+                value: String(s),
+                label: s === 0 ? 'Off' : `${s}s`,
+              }))}
+              onChange={(v) => update({ outro: Number(v) })}
+            />
+          </div>
+          <div className="flex items-center gap-2">
             <span className="text-[11px] font-medium tracking-wide text-zinc-500 uppercase">
               Speed
             </span>

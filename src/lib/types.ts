@@ -20,6 +20,9 @@ export type Format = 'mp4' | 'gif' | 'webm'
 /** How the user authors code: one sequentially-revealed block, or a series of snapshots. */
 export type InputMode = 'sequence' | 'steps'
 
+/** Which preview renderer draws the frame: the DOM/CSS renderer or the WebGL (R3F) one. */
+export type Renderer = 'dom' | 'webgl'
+
 /** How a step reveals its inserted code relative to the previous step. */
 export type TransitionStyle = 'diff' | 'crossfade' | 'typewriter' | 'flip3d'
 
@@ -64,6 +67,8 @@ export const FONTS: { id: string; label: string; stack: string }[] = [
 ]
 
 export interface Settings {
+  /** which preview renderer draws the frame (DOM/CSS or WebGL) */
+  renderer: Renderer
   // input
   mode: InputMode
   code: string
@@ -80,6 +85,8 @@ export interface Settings {
   stepHold: number
   /** seconds a step→step transition takes */
   transitionDur: number
+  /** freeze-frame hold at the very end: the finished result lingers + gently hovers (0 = off) */
+  outro: number
 
   language: Language
   themeId: string
