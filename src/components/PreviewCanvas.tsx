@@ -211,6 +211,30 @@ function revealRows(
 
   if (animation === 'tokens') return tokenRows(lines, revealT, ctx)
 
+  if (animation === 'shatter') {
+    // each line flies in from a seeded random direction, converging + sharpening
+    const stagger = n > 1 ? 0.55 / (n - 1) : 0
+    const lineDur = 0.5
+    return lines.map((line, i) => {
+      const t = easeOutCubic(clamp01((revealT - i * stagger) / lineDur))
+      const rest = 1 - t
+      const rx = ((Math.sin(i * 12.9898) * 43758.5453) % 1) - 0.5
+      const ry = ((Math.sin(i * 78.233) * 43758.5453) % 1) - 0.5
+      return (
+        <CodeRow
+          key={i}
+          ctx={ctx}
+          idx={i}
+          tokens={line}
+          opacity={t}
+          tx={rest * rx * 140}
+          ty={rest * ry * 70}
+          blur={rest * 3}
+        />
+      )
+    })
+  }
+
   // fade / slide / flip: staggered per-line reveal
   const stagger = n > 1 ? 0.72 / (n - 1) : 0
   const lineDur = Math.max(0.28, stagger * 2.2)
@@ -504,7 +528,8 @@ export function PreviewCanvas({
     const nextLines = stepLines[phase.step] ?? []
     const prevLines = stepLines[phase.from ?? phase.step] ?? []
     const style = phase.style ?? 'diff'
-    if (style === 'crossfade') {
+    // 'shatter' is a WebGL-only transition; the DOM renderer crossfades instead
+    if (style === 'crossfade' || style === 'shatter') {
       codeRows = (
         <div className="relative">
           <div

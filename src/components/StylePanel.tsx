@@ -13,8 +13,8 @@ import {
   Square,
   type LucideIcon,
 } from 'lucide-react'
-import type { Settings, SceneFx } from '../lib/types'
-import { FONTS, SCENE_FX } from '../lib/types'
+import type { Settings, SceneFx, CameraMove } from '../lib/types'
+import { CAMERA_MOVES, FONTS, SCENE_FX } from '../lib/types'
 import { BACKGROUNDS, THEMES } from '../lib/themes'
 import { PRESETS, randomVibe } from '../lib/presets'
 import { Row, Section, Segmented, Select, Slider, Toggle } from './ui'
@@ -209,16 +209,28 @@ export function StylePanel({
 
       <Section title="3D">
         {settings.renderer === 'webgl' && (
-          <div>
-            <div className="mb-1.5 text-[13px] text-zinc-400">
-              Scene FX <span className="text-zinc-600">(WebGL)</span>
+          <>
+            <div>
+              <div className="mb-1.5 text-[13px] text-zinc-400">
+                Scene FX <span className="text-zinc-600">(WebGL)</span>
+              </div>
+              <Select
+                value={settings.sceneFx}
+                options={SCENE_FX.map((f) => ({ value: f.id, label: f.label }))}
+                onChange={(v) => update({ sceneFx: v as SceneFx })}
+              />
             </div>
-            <Select
-              value={settings.sceneFx}
-              options={SCENE_FX.map((f) => ({ value: f.id, label: f.label }))}
-              onChange={(v) => update({ sceneFx: v as SceneFx })}
-            />
-          </div>
+            <div>
+              <div className="mb-1.5 text-[13px] text-zinc-400">
+                Camera <span className="text-zinc-600">(WebGL)</span>
+              </div>
+              <Select
+                value={settings.camera}
+                options={CAMERA_MOVES.map((c) => ({ value: c.id, label: c.label }))}
+                onChange={(v) => update({ camera: v as CameraMove })}
+              />
+            </div>
+          </>
         )}
         <div>
           <div className="mb-1.5 text-[13px] text-zinc-400">Perspective</div>

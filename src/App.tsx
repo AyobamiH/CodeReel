@@ -19,6 +19,7 @@ import { ExportModal } from './components/ExportModal'
 const DEFAULT_SETTINGS: Settings = {
   renderer: 'dom',
   sceneFx: 'none',
+  camera: 'dolly',
   brand: '',
   brandOn: false,
   mode: 'sequence',

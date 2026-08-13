@@ -13,8 +13,19 @@ export const LANGUAGES: { id: Language; label: string }[] = [
   { id: 'bash', label: 'Bash' },
 ]
 
-export type AnimationStyle = 'typewriter' | 'fade' | 'slide' | 'flip' | 'tokens'
+export type AnimationStyle = 'typewriter' | 'fade' | 'slide' | 'flip' | 'tokens' | 'shatter'
 export type Aspect = '16:9' | '1:1' | '9:16'
+
+/** Cinematic camera path for the WebGL renderer, driven by progress. */
+export type CameraMove = 'dolly' | 'orbit' | 'push' | 'sweep' | 'crash'
+
+export const CAMERA_MOVES: { id: CameraMove; label: string }[] = [
+  { id: 'dolly', label: 'Dolly' },
+  { id: 'orbit', label: 'Orbit' },
+  { id: 'push', label: 'Push in' },
+  { id: 'sweep', label: 'Sweep' },
+  { id: 'crash', label: 'Crash zoom' },
+]
 export type Format = 'mp4' | 'gif' | 'webm'
 
 /** How the user authors code: one sequentially-revealed block, or a series of snapshots. */
@@ -39,13 +50,14 @@ export const SCENE_FX: { id: SceneFx; label: string }[] = [
 ]
 
 /** How a step reveals its inserted code relative to the previous step. */
-export type TransitionStyle = 'diff' | 'crossfade' | 'typewriter' | 'flip3d'
+export type TransitionStyle = 'diff' | 'crossfade' | 'typewriter' | 'flip3d' | 'shatter'
 
 export const TRANSITIONS: { id: TransitionStyle; label: string }[] = [
   { id: 'diff', label: 'Diff reveal' },
   { id: 'crossfade', label: 'Crossfade' },
   { id: 'typewriter', label: 'Typewriter' },
   { id: 'flip3d', label: 'Flip 3D' },
+  { id: 'shatter', label: 'Shatter' },
 ]
 
 /** Semantic status of the console output — sets the dot colour in the preview. */
@@ -86,6 +98,8 @@ export interface Settings {
   renderer: Renderer
   /** themed scene effect for the WebGL renderer */
   sceneFx: SceneFx
+  /** cinematic camera path for the WebGL renderer */
+  camera: CameraMove
   /** social handle / brand shown as a watermark + end-card CTA ('' = off) */
   brand: string
   /** whether the brand watermark + end card are shown */

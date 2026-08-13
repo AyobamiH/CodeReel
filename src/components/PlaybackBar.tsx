@@ -1,4 +1,5 @@
 import {
+  Boxes,
   Braces,
   Grip,
   Keyboard,
@@ -72,6 +73,13 @@ const MOTIONS: MotionOpt[] = [
     wLabel: 'Dissolve',
     wTitle: 'Grainy pixel dissolve',
     WIcon: Grip,
+  },
+  {
+    value: 'shatter',
+    label: 'Shatter',
+    title: 'Lines fly in from scattered shards',
+    Icon: Boxes,
+    wTitle: 'Code assembles from tumbling shards',
   },
 ]
 

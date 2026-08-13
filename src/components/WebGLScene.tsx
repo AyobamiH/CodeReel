@@ -23,10 +23,23 @@ const easeInOutCubic = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2
 const clamp01 = (t: number) => Math.min(1, Math.max(0, t))
 
 // map a step transition style → shader mode
-const MODE: Record<string, number> = { crossfade: 0, diff: 1, typewriter: 2, flip3d: 3 }
+const MODE: Record<string, number> = {
+  crossfade: 0,
+  diff: 1,
+  typewriter: 2,
+  flip3d: 3,
+  shatter: 4,
+}
 
 // map the Motion option → reveal style in the shader (flip = the original reveal)
-const MOTION: Record<string, number> = { typewriter: 0, fade: 1, slide: 2, flip: 3, tokens: 4 }
+const MOTION: Record<string, number> = {
+  typewriter: 0,
+  fade: 1,
+  slide: 2,
+  flip: 3,
+  tokens: 4,
+  shatter: 5,
+}
 
 // scene FX: index for the shaders + optional accent-colour override + bloom boost
 const FX: Record<string, number> = {
@@ -93,10 +106,33 @@ const FRAG = /* glsl */ `
   }
   float hash1(float n) { return fract(sin(n * 127.1) * 43758.5453); }
 
+  // Sample the card as shattered tiles. a in [0,1]: 0 = fully scattered, 1 = whole.
+  // Each tile tumbles + flies out on its own random path (staggered), so the code
+  // bursts into shards and reassembles — the "token-shatter" signature.
+  vec4 shatterSample(sampler2D tex, vec2 uv, float a) {
+    vec2 cells = vec2(24.0, 16.0);
+    vec2 id = floor(uv * cells);
+    float h1 = hash(id);
+    float h2 = hash(id + 17.3);
+    float ta = clamp((a - h2 * 0.35) / 0.65, 0.0, 1.0); // per-tile staggered assemble
+    float sc = 1.0 - ta;                                 // scatter amount
+    vec2 c = (id + 0.5) / cells;                         // tile centre
+    vec2 dir = normalize(vec2(h1, h2) - 0.5 + 1e-4);
+    vec2 off = dir * sc * 0.6 + vec2(0.0, -sc * sc * 0.22); // fly out + slight fall
+    float ang = (h1 - 0.5) * sc * 2.8;                      // tumble
+    float cs = cos(ang), sn = sin(ang);
+    vec2 luv = mat2(cs, sn, -sn, cs) * (uv - c);
+    vec4 col = texture2D(tex, c + luv - off);
+    col.a *= ta;
+    return col;
+  }
+
   // Reveal the card as a function of r (0..1). One variant per Motion option;
   // all pure in r, so it stays export-deterministic. Revealing pixels emerge
   // from soft depth (mip-bias defocus) via uDof and sharpen as they settle.
   vec4 sampleReveal(sampler2D tex, vec2 uv, float r) {
+    // SHATTER — the card assembles from scattered, tumbling shards
+    if (uMotion == 5) return shatterSample(tex, uv, r);
     // FLIP (default) — the original glowing top-to-bottom frontier; unchanged
     if (uMotion == 3) {
       float front = mix(1.08, -0.08, r);
@@ -184,6 +220,11 @@ const FRAG = /* glsl */ `
                      * smoothstep(0.0, 0.2, uMix);
         vec2 ruv = uv + normalize(d + 1e-5) * wave;
         col = mix(texture2D(uTexA, ruv), texture2D(uTexB, ruv), cf);
+      } else if (uMode == 4) {
+        // shatter: the old code bursts into shards, the new one reassembles
+        col = (uMix < 0.5)
+          ? shatterSample(uTexA, uv, 1.0 - uMix * 2.0)
+          : shatterSample(uTexB, uv, (uMix - 0.5) * 2.0);
       } else {
         col = mix(a, b, cf);
       }
@@ -605,16 +646,38 @@ function Rig({
       backdropRef.current.scale.set(vh * viewAspect * 1.1, vh * 1.1, 1)
     }
 
-    let dolly = 0
-    if (phase.kind === 'reveal') {
-      dolly = (1 - easeOutCubic(localT)) * fit * 0.34 // start pulled back, push in
-    } else if (phase.kind === 'trans') {
-      dolly = -Math.sin(localT * Math.PI) * fit * 0.14 // slight punch-in mid-transition
+    // cinematic camera path — all pure of progress; `dolly` is the original move
+    let camX = 0
+    let camY = 0
+    let camZ = fit
+    let lookX = 0
+    const orbitPhase = progress * Math.PI * 2 // sin/cos of this loop seamlessly
+    if (settings.camera === 'orbit') {
+      const ang = Math.sin(orbitPhase) * 0.5 // gentle ±28° arc, seamless on loop
+      camX = Math.sin(ang) * fit
+      camZ = Math.cos(ang) * fit
+      camY = Math.sin(orbitPhase) * fit * 0.05
+    } else if (settings.camera === 'push') {
+      camZ = fit * (1.45 - 0.6 * easeInOutCubic(progress)) // slow relentless push-in
+    } else if (settings.camera === 'sweep') {
+      camX = Math.sin(orbitPhase) * fit * 0.28 // horizontal whip pan
+      lookX = camX * 0.4 // lookAt trails the camera slightly
+      camZ = fit * (1.02 - 0.04 * Math.cos(orbitPhase))
+    } else if (settings.camera === 'crash') {
+      camZ =
+        phase.kind === 'reveal'
+          ? fit * (2.3 - 1.3 * Math.pow(easeOutCubic(localT), 0.6)) // slam in on the reveal
+          : fit + Math.sin(orbitPhase) * fit * 0.02
     } else {
-      dolly = Math.sin(progress * Math.PI * 2) * fit * 0.02 // gentle breathing on holds
+      // DOLLY (default) — unchanged
+      let dolly = 0
+      if (phase.kind === 'reveal') dolly = (1 - easeOutCubic(localT)) * fit * 0.34
+      else if (phase.kind === 'trans') dolly = -Math.sin(localT * Math.PI) * fit * 0.14
+      else dolly = Math.sin(orbitPhase) * fit * 0.02
+      camZ = fit + dolly
     }
-    camera.position.set(0, 0, fit + dolly)
-    camera.lookAt(0, 0, 0)
+    camera.position.set(camX, camY, camZ)
+    camera.lookAt(lookX, 0, 0)
 
     // --- first-frame hook: a quick "power-on" flash over the opening reveal ---
     if (flashRef.current && flashMatRef.current) {
@@ -622,7 +685,6 @@ function Rig({
       flashMatRef.current.opacity = intro * intro * 0.7
       flashRef.current.visible = intro > 0.001
       if (intro > 0.001) {
-        const camZ = fit + dolly
         const fz = camZ - 1.5 // sit just in front of the camera so it fills the view
         const fvh = 2 * 1.5 * Math.tan(fov / 2)
         flashRef.current.position.z = fz

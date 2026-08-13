@@ -1,5 +1,5 @@
 import type { AnimationStyle, Settings, TransitionStyle } from './types'
-import { SCENE_FX } from './types'
+import { CAMERA_MOVES, SCENE_FX } from './types'
 import { BACKGROUNDS, THEMES } from './themes'
 
 /** A one-click "vibe": a curated bundle of visual settings applied together. */
@@ -25,6 +25,7 @@ export const PRESETS: Preset[] = [
       ...BASE,
       renderer: 'dom',
       sceneFx: 'none',
+      camera: 'dolly',
       themeId: 'dracula',
       backgroundId: 'aurora',
       animation: 'flip',
@@ -49,6 +50,7 @@ export const PRESETS: Preset[] = [
       ...BASE,
       renderer: 'webgl',
       sceneFx: 'matrix',
+      camera: 'push',
       themeId: 'github-dark',
       backgroundId: 'mono',
       animation: 'tokens',
@@ -73,10 +75,11 @@ export const PRESETS: Preset[] = [
       ...BASE,
       renderer: 'webgl',
       sceneFx: 'neon',
+      camera: 'orbit',
       themeId: 'tokyo-night',
       backgroundId: 'candy',
-      animation: 'flip',
-      transition: 'crossfade',
+      animation: 'shatter',
+      transition: 'shatter',
       tilt: 14,
       tiltX: 1,
       tiltY: 1,
@@ -97,6 +100,7 @@ export const PRESETS: Preset[] = [
       ...BASE,
       renderer: 'webgl',
       sceneFx: 'synthwave',
+      camera: 'sweep',
       themeId: 'dracula',
       backgroundId: 'ember',
       animation: 'slide',
@@ -121,6 +125,7 @@ export const PRESETS: Preset[] = [
       ...BASE,
       renderer: 'webgl',
       sceneFx: 'hologram',
+      camera: 'orbit',
       themeId: 'nord',
       backgroundId: 'slate',
       animation: 'fade',
@@ -145,6 +150,7 @@ export const PRESETS: Preset[] = [
       ...BASE,
       renderer: 'webgl',
       sceneFx: 'crt',
+      camera: 'dolly',
       themeId: 'monokai',
       backgroundId: 'mono',
       animation: 'typewriter',
@@ -166,8 +172,8 @@ export const PRESETS: Preset[] = [
 const pick = <T>(arr: readonly T[]): T => arr[Math.floor(Math.random() * arr.length)]
 const rand = (lo: number, hi: number) => lo + Math.floor(Math.random() * (hi - lo + 1))
 
-const ANIMATIONS: AnimationStyle[] = ['typewriter', 'fade', 'slide', 'flip', 'tokens']
-const TRANSITIONS: TransitionStyle[] = ['diff', 'crossfade', 'typewriter', 'flip3d']
+const ANIMATIONS: AnimationStyle[] = ['typewriter', 'fade', 'slide', 'flip', 'tokens', 'shatter']
+const TRANSITIONS: TransitionStyle[] = ['diff', 'crossfade', 'typewriter', 'flip3d', 'shatter']
 const TILT_DIRS: [number, number][] = [
   [-1, -1],
   [0, -1],
@@ -189,6 +195,7 @@ export function randomVibe(): Partial<Settings> {
   return {
     renderer: 'webgl',
     sceneFx: pick(SCENE_FX.filter((f) => f.id !== 'none')).id,
+    camera: pick(CAMERA_MOVES).id,
     themeId: pick(THEMES).id,
     backgroundId: pick(BACKGROUNDS.filter((b) => b.id !== 'none')).id,
     customBg: null,
