@@ -313,6 +313,16 @@ export function StylePanel({
             onChange={(v) => update({ particles: v })}
           />
         )}
+        {settings.renderer === 'webgl' && (
+          <Slider
+            label="Hero spotlight"
+            value={settings.spotlight}
+            min={0}
+            max={100}
+            unit="%"
+            onChange={(v) => update({ spotlight: v })}
+          />
+        )}
       </Section>
 
       <Section title="Branding">

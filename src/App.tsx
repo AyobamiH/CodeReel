@@ -53,6 +53,7 @@ const DEFAULT_SETTINGS: Settings = {
   bloom: 30,
   sweep: 30,
   particles: 30,
+  spotlight: 45,
   animation: 'flip',
   duration: 5,
   speed: 1,

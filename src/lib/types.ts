@@ -153,6 +153,8 @@ export interface Settings {
   sweep: number
   /** ambient floating particles in the WebGL scene (0 = off) */
   particles: number
+  /** hero-line spotlight: focus the changed lines during a step transition (0 = off) */
+  spotlight: number
   animation: AnimationStyle
   duration: number
   speed: number

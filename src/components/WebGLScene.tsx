@@ -8,6 +8,10 @@ import { BACKGROUNDS, THEMES } from '../lib/themes'
 import { tokenizeLines } from '../lib/highlight'
 import { buildTimeline, locate, type Phase } from '../lib/timeline'
 import { drawCard, measureCard, type CardStyle } from '../lib/codeTexture'
+import { addedIndices, diffLineStatus } from '../lib/diff'
+
+/** uv.y band covering a step's added lines, for the hero-line spotlight. */
+type SpotBand = { lo: number; hi: number } | null
 
 /**
  * Tier 3 — a real WebGL renderer (React Three Fiber). Opt-in via `settings.renderer`.
@@ -98,6 +102,9 @@ const FRAG = /* glsl */ `
   uniform int   uFx;         // scene FX: 0 none, 1 glitch, 2 matrix, 3 halloween, 4 neon
   uniform float uFxT;        // progress-driven FX phase (0..1) — deterministic, no clock
   uniform int   uMotion;     // reveal style: 0 type, 1 fade, 2 slide, 3 flip, 4 tokens
+  uniform float uSpot;       // hero-line spotlight strength (0 = off)
+  uniform float uSpotLo;     // spotlight band, low uv.y edge
+  uniform float uSpotHi;     // spotlight band, high uv.y edge
 
   float hash(vec2 p) {
     p = fract(p * vec2(123.34, 456.21));
@@ -296,6 +303,16 @@ const FRAG = /* glsl */ `
       col.rgb *= mix(0.7, 1.0, v);
     }
 
+    // hero-line spotlight: dim everything but the changed lines, gently lift them
+    if (uSpot > 0.001) {
+      float e = 0.03;
+      float band = clamp(
+        smoothstep(uSpotLo - e, uSpotLo, uv.y) - smoothstep(uSpotHi, uSpotHi + e, uv.y),
+        0.0, 1.0);
+      col.rgb *= mix(1.0, mix(1.0, 0.28, uSpot), 1.0 - band);
+      col.rgb += col.a * band * uSpot * 0.1;
+    }
+
     gl_FragColor = col;
   }
 `
@@ -322,6 +339,9 @@ function makeCardMaterial(reflect: boolean): THREE.ShaderMaterial {
       uFx: { value: 0 },
       uFxT: { value: 0 },
       uMotion: { value: 3 },
+      uSpot: { value: 0 },
+      uSpotLo: { value: 0 },
+      uSpotHi: { value: 1 },
     },
   })
 }
@@ -582,6 +602,7 @@ function Rig({
   glow,
   consoleTex,
   redrawConsole,
+  spotBands,
 }: {
   settings: Settings
   progress: number
@@ -593,6 +614,8 @@ function Rig({
   consoleTex: THREE.CanvasTexture | null
   /** redraw `consoleTex` for the given step with `reveal` (0..1) of the output typed */
   redrawConsole: (step: number, reveal: number) => void
+  /** per-step uv.y band of added lines, for the hero-line spotlight */
+  spotBands: SpotBand[]
 }) {
   const { camera, size, invalidate } = useThree()
   const cardRef = useRef<THREE.Mesh>(null)
@@ -640,6 +663,20 @@ function Rig({
       f.b = null
     }
 
+    // hero-line spotlight: focus the changed lines during a transition, ease out on the hold
+    let spot = 0
+    let spotLo = 0
+    let spotHi = 1
+    if (isSteps && settings.spotlight > 0 && (phase.kind === 'trans' || phase.kind === 'hold')) {
+      const band = spotBands[phase.step]
+      if (band) {
+        spotLo = band.lo
+        spotHi = band.hi
+        const amt = settings.spotlight / 100
+        spot = phase.kind === 'trans' ? amt : amt * (1 - easeOutCubic(localT))
+      }
+    }
+
     // --- shader uniforms (shared by the card + its floor reflection) ---
     for (const mat of [material, reflectMat]) {
       const u = mat.uniforms
@@ -652,6 +689,9 @@ function Rig({
       u.uFx.value = fx
       u.uFxT.value = progress
       u.uMotion.value = MOTION[settings.animation] ?? 3
+      u.uSpot.value = spot
+      u.uSpotLo.value = spotLo
+      u.uSpotHi.value = spotHi
     }
     // sheen direction follows the tilt so the "light" tracks the card angle
     material.uniforms.uSheen.value.set(0.5 + settings.tiltX * 0.5, 0.5 + settings.tiltY * 0.5)
@@ -753,8 +793,14 @@ function Rig({
       else dolly = Math.sin(orbitPhase) * fit * 0.02
       camZ = fit + dolly
     }
+    // rack-focus: on the spotlight, push in slightly and recentre on the hero band
+    let lookY = 0
+    if (spot > 0) {
+      camZ -= fit * 0.08 * spot
+      lookY = ((spotLo + spotHi) / 2 - 0.5) * planeH * 0.5 * spot
+    }
     camera.position.set(camX, camY, camZ)
-    camera.lookAt(lookX, 0, 0)
+    camera.lookAt(lookX, lookY, 0)
 
     // --- first-frame hook: a quick "power-on" flash over the opening reveal ---
     if (flashRef.current && flashMatRef.current) {
@@ -810,6 +856,7 @@ function Rig({
     overlayMat,
     consoleTex,
     redrawConsole,
+    spotBands,
     invalidate,
   ])
 
@@ -947,7 +994,7 @@ export function WebGLScene({
   useEffect(() => () => glow.dispose(), [glow])
 
   // rasterize every snapshot into a common box → identical texture sizes → clean shader UVs
-  const { textures, planeW, planeH, consoleTex, redrawConsole } = useMemo(() => {
+  const { textures, planeW, planeH, consoleTex, redrawConsole, spotBands } = useMemo(() => {
     const metrics = snapshots.map((lines) => measureCard(lines, cardStyle))
     const boxW = Math.max(...metrics.map((m) => m.w))
     const boxH = Math.max(...metrics.map((m) => m.h))
@@ -978,6 +1025,23 @@ export function WebGLScene({
       if (consoleTexture) consoleTexture.needsUpdate = true
     }
 
+    // hero-line spotlight: for each step, the uv.y band covering its added lines
+    const spotBands: SpotBand[] = isSteps
+      ? snapshots.map((_, i) => {
+          if (i === 0) return null
+          const added = addedIndices(
+            diffLineStatus(settings.steps[i - 1].code, settings.steps[i].code),
+          )
+          if (!added.length) return null
+          const m = metrics[i]
+          const offY = (boxH - m.h) / 2
+          const lineH = cardStyle.lineHeightPx
+          const yTop = offY + m.codeTop + Math.min(...added) * lineH
+          const yBot = offY + m.codeTop + (Math.max(...added) + 1) * lineH
+          return { lo: 1 - yBot / boxH, hi: 1 - yTop / boxH }
+        })
+      : []
+
     // world-space plane: fixed height, width from the box aspect
     const H = 2.6
     const W = H * (boxW / boxH)
@@ -987,8 +1051,9 @@ export function WebGLScene({
       planeH: H,
       consoleTex: consoleTexture,
       redrawConsole,
+      spotBands,
     }
-  }, [snapshots, cardStyle])
+  }, [snapshots, cardStyle, isSteps, settings.steps])
 
   useEffect(
     () => () => {
@@ -1023,6 +1088,7 @@ export function WebGLScene({
           glow={glow}
           consoleTex={consoleTex}
           redrawConsole={redrawConsole}
+          spotBands={spotBands}
         />
         <EffectComposer>
           <Bloom
