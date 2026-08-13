@@ -56,6 +56,8 @@ const DEFAULT_SETTINGS: Settings = {
   sweep: 30,
   particles: 30,
   spotlight: 45,
+  slab: 45,
+  floor: 0,
   animation: 'flip',
   duration: 5,
   speed: 1,

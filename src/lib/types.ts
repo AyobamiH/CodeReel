@@ -194,6 +194,10 @@ export interface Settings {
   particles: number
   /** hero-line spotlight: focus the changed lines during a step transition (0 = off) */
   spotlight: number
+  /** extruded card slab: real thickness + beveled, lit edges (0 = flat plane) */
+  slab: number
+  /** glossy reflective floor beneath the card with a real cast shadow (0 = off) */
+  floor: number
   animation: AnimationStyle
   duration: number
   speed: number

@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef } from 'react'
 import { Canvas, useThree } from '@react-three/fiber'
 import { EffectComposer, Bloom } from '@react-three/postprocessing'
+import { Environment, Lightformer, MeshReflectorMaterial, RoundedBox } from '@react-three/drei'
 import * as THREE from 'three'
 import type { Settings } from '../lib/types'
 import { CONSOLE_STATUSES, FONTS } from '../lib/types'
@@ -717,7 +718,8 @@ function Rig({
     material.uniforms.uSweepPos.value = sweeping ? -0.7 + localT * 1.4 : 2
     material.uniforms.uSweepAmt.value = sweeping ? 0.05 + (settings.sweep / 100) * 0.18 : 0.05
     reflectMat.uniforms.uReflectStr.value = settings.reflection / 100
-    reflectMat.visible = settings.reflection > 0
+    // the real glossy floor supersedes the shader mirror-reflection when it's on
+    reflectMat.visible = settings.floor === 0 && settings.reflection > 0
 
     // --- card transform: tilt + subtle parallax drift (reflection inherits it as a child) ---
     if (cardRef.current) {
@@ -816,6 +818,13 @@ function Rig({
       camZ -= fit * 0.08 * spot
       lookY = ((spotLo + spotHi) / 2 - 0.5) * planeH * 0.5 * spot
     }
+    // glossy floor: lift the camera + look down so the card clearly stands on the floor
+    const floorN = settings.floor / 100
+    if (floorN > 0) {
+      camY += fit * 0.28 * floorN
+      lookY += -fit * 0.12 * floorN
+      camZ += fit * 0.08 * floorN
+    }
     camera.position.set(camX, camY, camZ)
     camera.lookAt(lookX, lookY, 0)
 
@@ -884,8 +893,57 @@ function Rig({
   const aStyle = settings.annotationStyle
   const aGap = 0.06
 
+  // Section A materials: extruded slab thickness + glossy floor
+  const slabDepth = (settings.slab / 100) * 0.34
+  const floorOn = settings.floor > 0
+  const floorN = settings.floor / 100
+
   return (
     <>
+      {/* real lighting + a self-contained environment for the slab / floor materials */}
+      <ambientLight intensity={0.4} />
+      <directionalLight
+        position={[3.5, 5, 4]}
+        intensity={1.1}
+        castShadow={floorOn}
+        shadow-mapSize={[1024, 1024]}
+        shadow-camera-near={0.5}
+        shadow-camera-far={40}
+        shadow-camera-left={-6}
+        shadow-camera-right={6}
+        shadow-camera-top={6}
+        shadow-camera-bottom={-6}
+      />
+      <Environment resolution={128} frames={1}>
+        <Lightformer intensity={1.2} position={[0, 2, 5]} scale={[8, 6, 1]} />
+        <Lightformer intensity={0.5} color="#9db4ff" position={[-5, 1, 2]} scale={[3, 4, 1]} />
+        <Lightformer intensity={0.4} color="#ffd9a0" position={[5, -1, 2]} scale={[3, 3, 1]} />
+      </Environment>
+
+      {/* glossy reflective floor with a real cast shadow (opt-in) */}
+      {floorOn && (
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -planeH / 2 - 0.02, 0]} receiveShadow>
+          <planeGeometry args={[planeW * 6, planeH * 6, 1, 1]} />
+          {/* everything scales linearly from 0 so the floor eases in with the slider
+              (opacity blends it against the backdrop — no hard band when nudged off 0) */}
+          <MeshReflectorMaterial
+            resolution={1024}
+            blur={[120, 40]}
+            mixBlur={0.5}
+            mixStrength={floorN * 14}
+            roughness={0.2}
+            depthScale={0.8}
+            minDepthThreshold={0.2}
+            maxDepthThreshold={1.0}
+            color="#15151f"
+            metalness={0.85}
+            mirror={floorN}
+            transparent
+            opacity={floorN}
+          />
+        </mesh>
+      )}
+
       {/* themed scene-FX backdrop — filled + scaled in the effect above */}
       <mesh ref={backdropRef} material={backdropMat}>
         <planeGeometry args={[1, 1, 1, 1]} />
@@ -914,9 +972,26 @@ function Rig({
           opacity={0}
         />
       </mesh>
-      {/* card + its floor reflection + annotations (children inherit tilt/drift) */}
+      {/* card + slab body + floor reflection + annotations (children inherit tilt/drift) */}
       <mesh ref={cardRef} material={material}>
         <planeGeometry args={[planeW, planeH, 1, 1]} />
+        {/* extruded slab body behind the code face — real thickness + lit, beveled edges */}
+        {settings.slab > 0 && (
+          <RoundedBox
+            args={[planeW, planeH, slabDepth]}
+            radius={Math.min(0.05, slabDepth / 2)}
+            smoothness={3}
+            position={[0, 0, -slabDepth / 2 - 0.006]}
+            castShadow
+          >
+            <meshStandardMaterial
+              color={theme.bg}
+              roughness={0.5}
+              metalness={0.4}
+              envMapIntensity={0.9}
+            />
+          </RoundedBox>
+        )}
         <mesh material={reflectMat} position={[0, -planeH, 0]}>
           <planeGeometry args={[planeW, planeH, 1, 1]} />
         </mesh>
@@ -1174,6 +1249,7 @@ export function WebGLScene({
       <Canvas
         style={{ position: 'absolute', inset: 0 }}
         frameloop="demand"
+        shadows
         dpr={[1, 2]}
         gl={{ alpha: true, antialias: true, premultipliedAlpha: false }}
         camera={{ fov: 32, position: [0, 0, 6], near: 0.1, far: 100 }}

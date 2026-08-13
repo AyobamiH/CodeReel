@@ -323,6 +323,26 @@ export function StylePanel({
             onChange={(v) => update({ spotlight: v })}
           />
         )}
+        {settings.renderer === 'webgl' && (
+          <Slider
+            label="Card thickness"
+            value={settings.slab}
+            min={0}
+            max={100}
+            unit="%"
+            onChange={(v) => update({ slab: v })}
+          />
+        )}
+        {settings.renderer === 'webgl' && (
+          <Slider
+            label="Glossy floor"
+            value={settings.floor}
+            min={0}
+            max={100}
+            unit="%"
+            onChange={(v) => update({ floor: v })}
+          />
+        )}
       </Section>
 
       <Section title="Branding">
