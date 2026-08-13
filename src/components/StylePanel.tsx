@@ -263,22 +263,29 @@ export function StylePanel({
           unit="°"
           onChange={(v) => update({ tilt: v })}
         />
-        <Slider
-          label="Depth of field"
-          value={settings.dof}
-          min={0}
-          max={100}
-          unit="%"
-          onChange={(v) => update({ dof: v })}
-        />
-        <Slider
-          label="Parallax"
-          value={settings.parallax}
-          min={0}
-          max={100}
-          unit="%"
-          onChange={(v) => update({ parallax: v })}
-        />
+        {/* Depth of field + Parallax are real DOM effects but have no meaningful effect in the
+            WebGL renderer (dof only softens the reveal frontier; parallax drift is imperceptible),
+            so they're hidden there — only controls that change the WebGL output are shown. */}
+        {settings.renderer === 'dom' && (
+          <>
+            <Slider
+              label="Depth of field"
+              value={settings.dof}
+              min={0}
+              max={100}
+              unit="%"
+              onChange={(v) => update({ dof: v })}
+            />
+            <Slider
+              label="Parallax"
+              value={settings.parallax}
+              min={0}
+              max={100}
+              unit="%"
+              onChange={(v) => update({ parallax: v })}
+            />
+          </>
+        )}
         <Slider
           label="Reflection"
           value={settings.reflection}
