@@ -161,6 +161,8 @@ export interface Settings {
   transitionDur: number
   /** freeze-frame hold at the very end: the finished result lingers + gently hovers (0 = off) */
   outro: number
+  /** seamless loop: card materialises from nothing + dissolves back so last frame == first */
+  loopWrap: boolean
 
   language: Language
   themeId: string

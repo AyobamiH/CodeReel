@@ -272,6 +272,25 @@ export function PlaybackBar({
             />
           </div>
           <div className="flex items-center gap-2">
+            <span
+              className="text-[11px] font-medium tracking-wide text-zinc-500 uppercase"
+              title="Seamless loop — the card materialises from nothing and dissolves back to it, so the take loops with no visible cut"
+            >
+              Seamless loop
+            </span>
+            <button
+              type="button"
+              onClick={() => update({ loopWrap: !settings.loopWrap })}
+              className={`h-7 cursor-pointer rounded-full px-3 text-[11px] font-medium transition-all duration-150 active:scale-95 ${
+                settings.loopWrap
+                  ? 'bg-accent-500/15 text-accent-400 ring-1 ring-accent-500/30'
+                  : 'text-zinc-400 ring-1 ring-white/10 hover:bg-white/8 hover:text-white'
+              }`}
+            >
+              {settings.loopWrap ? 'On' : 'Off'}
+            </button>
+          </div>
+          <div className="flex items-center gap-2">
             <span className="text-[11px] font-medium tracking-wide text-zinc-500 uppercase">
               Speed
             </span>

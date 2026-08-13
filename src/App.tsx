@@ -34,6 +34,7 @@ const DEFAULT_SETTINGS: Settings = {
   stepHold: 1.2,
   transitionDur: 0.8,
   outro: 3,
+  loopWrap: false,
   language: 'typescript',
   themeId: 'dracula',
   backgroundId: 'aurora',

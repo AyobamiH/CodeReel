@@ -7,7 +7,7 @@ import type { Settings } from '../lib/types'
 import { CONSOLE_STATUSES, FONTS } from '../lib/types'
 import { BACKGROUNDS, THEMES } from '../lib/themes'
 import { lineLength, tokenizeLines } from '../lib/highlight'
-import { buildTimeline, locate, type Phase } from '../lib/timeline'
+import { buildTimeline, locate, loopFade, type Phase } from '../lib/timeline'
 import { drawAnnotationPill, drawCard, measureCard, type CardStyle } from '../lib/codeTexture'
 import { addedIndices, diffLineStatus } from '../lib/diff'
 
@@ -40,6 +40,13 @@ interface AnnoItem {
 const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3)
 const easeInOutCubic = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2)
 const clamp01 = (t: number) => Math.min(1, Math.max(0, t))
+
+// reusable scratch for sizing the backdrop wall to the camera frustum each frame (no per-frame GC)
+const _fwd = new THREE.Vector3()
+const _right = new THREE.Vector3()
+const _up = new THREE.Vector3()
+const _dir = new THREE.Vector3()
+const _WORLD_UP = new THREE.Vector3(0, 1, 0)
 
 // map a step transition style → shader mode
 const MODE: Record<string, number> = {
@@ -464,8 +471,11 @@ function makeBackdropMaterial(): THREE.ShaderMaterial {
   return new THREE.ShaderMaterial({
     vertexShader: VERT,
     fragmentShader: BACKDROP_FRAG,
-    transparent: true,
-    depthWrite: false,
+    // opaque: every themed FX paints the full plane (a=1); the only a=0 case is 'none', which is
+    // hidden via `visible=false`. Opaque = drawn in the depth pass first, fully covering the page
+    // background, so the semi-transparent glossy floor blends against the wall, not the page.
+    transparent: false,
+    depthWrite: true,
     uniforms: {
       uFx: { value: 0 },
       uFxT: { value: 0 },
@@ -675,8 +685,11 @@ function Rig({
 
     // console / outro: swap in the dynamic texture that includes the console output
     // (console phase types it out; outro freezes it fully typed)
-    if ((phase.kind === 'console' || phase.kind === 'outro') && consoleTex) {
-      redrawConsole(phase.step, phase.kind === 'outro' ? 1 : easeOutCubic(clamp01(localT)))
+    if (
+      (phase.kind === 'console' || phase.kind === 'outro' || phase.kind === 'wrap') &&
+      consoleTex
+    ) {
+      redrawConsole(phase.step, phase.kind === 'console' ? easeOutCubic(clamp01(localT)) : 1)
       f.a = consoleTex
       f.b = null
     }
@@ -767,21 +780,6 @@ function Rig({
     if (planeAspect > viewAspect) fit = planeW / 2 / (Math.tan(fov / 2) * viewAspect)
     fit *= 1.1 + (settings.padding / 140) * 0.6 // breathing room, scaled by padding
 
-    // --- themed backdrop: fill the frustum behind the card, drive its shader from progress ---
-    if (backdropRef.current) {
-      backdropMat.visible = fx !== 0
-      const u = backdropMat.uniforms
-      u.uFx.value = fx
-      u.uFxT.value = progress
-      u.uAspect.value = viewAspect
-      u.uColor.value.set(fxAccent ?? theme.swatch[1])
-      const bz = -6
-      const dist = fit + fit * 0.34 - bz // farthest camera z (reveal start) → plane, so it always covers
-      const vh = 2 * dist * Math.tan(fov / 2)
-      backdropRef.current.position.z = bz
-      backdropRef.current.scale.set(vh * viewAspect * 1.1, vh * 1.1, 1)
-    }
-
     // cinematic camera path — all pure of progress; `dolly` is the original move
     let camX = 0
     let camY = 0
@@ -827,6 +825,41 @@ function Rig({
     }
     camera.position.set(camX, camY, camZ)
     camera.lookAt(lookX, lookY, 0)
+
+    // --- themed backdrop: sized AFTER the camera is placed by projecting the ACTUAL four frustum
+    // corners onto the wall plane. This covers any distance, pan, orbit or floor-pitch (a pitched
+    // view's vertical span on the wall is far larger than a straight-on estimate), so the wall
+    // always fully backs the scene — the semi-transparent glossy floor then blends against the dark
+    // wall instead of revealing the page background behind it. Kept world-centred for parallax. ---
+    if (backdropRef.current) {
+      backdropMat.visible = fx !== 0
+      const u = backdropMat.uniforms
+      u.uFx.value = fx
+      u.uFxT.value = progress
+      u.uAspect.value = viewAspect
+      u.uColor.value.set(fxAccent ?? theme.swatch[1])
+      const bz = -6
+      _fwd.set(lookX - camX, lookY - camY, -camZ).normalize()
+      _right.crossVectors(_fwd, _WORLD_UP).normalize()
+      _up.crossVectors(_right, _fwd).normalize()
+      const tanV = Math.tan(fov / 2)
+      const tanH = tanV * viewAspect
+      let coverX = 0
+      let coverY = 0
+      for (let i = -1; i <= 1; i += 2) {
+        for (let j = -1; j <= 1; j += 2) {
+          _dir
+            .copy(_fwd)
+            .addScaledVector(_right, i * tanH)
+            .addScaledVector(_up, j * tanV)
+          const s = (bz - camZ) / _dir.z // ray→plane at z = bz
+          coverX = Math.max(coverX, Math.abs(camX + s * _dir.x))
+          coverY = Math.max(coverY, Math.abs(camY + s * _dir.y))
+        }
+      }
+      backdropRef.current.position.z = bz
+      backdropRef.current.scale.set(coverX * 2 * 1.15, coverY * 2 * 1.15, 1)
+    }
 
     // --- first-frame hook: a quick "power-on" flash over the opening reveal ---
     if (flashRef.current && flashMatRef.current) {
@@ -888,7 +921,11 @@ function Rig({
 
   // annotations show only once the code has settled; positioned per style
   const aPhase = locate(timeline, progress).phase
-  const settledAnno = aPhase.kind === 'hold' || aPhase.kind === 'console' || aPhase.kind === 'outro'
+  const settledAnno =
+    aPhase.kind === 'hold' ||
+    aPhase.kind === 'console' ||
+    aPhase.kind === 'outro' ||
+    aPhase.kind === 'wrap'
   const curAnnos = settledAnno ? (annoLayout[aPhase.step] ?? []) : []
   const aStyle = settings.annotationStyle
   const aGap = 0.06
@@ -1062,6 +1099,12 @@ export function WebGLScene({
     settings.customBg ??
     (BACKGROUNDS.find((b) => b.id === settings.backgroundId) ?? BACKGROUNDS[0]).css
   const isTransparent = background === 'transparent'
+
+  // seamless-loop wrap: fade the whole 3D scene to reveal the stage background at both ends of the
+  // take, so it powers on at the start and dissolves at the end (last frame == first). Fading the
+  // canvas hides every channel's seam discontinuity at once — camera, backdrop, particles.
+  const loopTimeline = useMemo(() => buildTimeline(settings), [settings])
+  const loopEnv = loopFade(loopTimeline, progress, settings.loopWrap)
 
   // R3F's <Canvas> sizes itself from react-use-measure, which under React 19 can
   // miss its initial ResizeObserver callback — leaving the canvas at 0×0 so the
@@ -1247,7 +1290,7 @@ export function WebGLScene({
       style={{ background: isTransparent ? undefined : background }}
     >
       <Canvas
-        style={{ position: 'absolute', inset: 0 }}
+        style={{ position: 'absolute', inset: 0, opacity: loopEnv }}
         frameloop="demand"
         shadows
         dpr={[1, 2]}

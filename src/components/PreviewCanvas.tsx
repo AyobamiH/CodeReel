@@ -5,7 +5,7 @@ import { BACKGROUNDS, THEMES } from '../lib/themes'
 import { lineLength, tokenizeLines, type Token } from '../lib/highlight'
 import { useElementSize } from '../lib/usePlayback'
 import { addedIndices, diffLineStatus, type LineStatus } from '../lib/diff'
-import { buildTimeline, locate } from '../lib/timeline'
+import { buildTimeline, locate, loopFade } from '../lib/timeline'
 
 const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3)
 const easeInOutCubic = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2)
@@ -562,12 +562,17 @@ export function PreviewCanvas({
   let codeRows: ReactNode
   if (!isSteps) {
     codeRows =
-      phase.kind === 'console' || phase.kind === 'outro'
+      phase.kind === 'console' || phase.kind === 'outro' || phase.kind === 'wrap'
         ? fullRows(seqLines, ctx, curAnnos)
         : revealRows(seqLines, settings.animation, localT, playing, ctx)
   } else if (phase.kind === 'reveal') {
     codeRows = revealRows(stepLines[0] ?? [], settings.animation, localT, playing, ctx)
-  } else if (phase.kind === 'hold' || phase.kind === 'console' || phase.kind === 'outro') {
+  } else if (
+    phase.kind === 'hold' ||
+    phase.kind === 'console' ||
+    phase.kind === 'outro' ||
+    phase.kind === 'wrap'
+  ) {
     // during the console phase the final step stays fully revealed
     codeRows = fullRows(stepLines[phase.step] ?? [], ctx, curAnnos)
   } else {
@@ -636,9 +641,12 @@ export function PreviewCanvas({
       className="mt-5 overflow-hidden rounded-lg border border-white/10"
       style={{
         background: 'rgba(0,0,0,0.2)',
-        opacity: phase.kind === 'console' || phase.kind === 'outro' ? 1 : 0,
+        opacity:
+          phase.kind === 'console' || phase.kind === 'outro' || phase.kind === 'wrap' ? 1 : 0,
         transform:
-          phase.kind === 'console' || phase.kind === 'outro' ? undefined : 'translateY(10px)',
+          phase.kind === 'console' || phase.kind === 'outro' || phase.kind === 'wrap'
+            ? undefined
+            : 'translateY(10px)',
         transition: 'opacity 180ms ease, transform 180ms ease',
       }}
     >
@@ -655,7 +663,11 @@ export function PreviewCanvas({
       >
         {revealConsoleRows(
           consoleLines,
-          phase.kind === 'console' ? localT : phase.kind === 'outro' ? 1 : 0,
+          phase.kind === 'console'
+            ? localT
+            : phase.kind === 'outro' || phase.kind === 'wrap'
+              ? 1
+              : 0,
           playing,
           ctx,
         )}
@@ -726,6 +738,12 @@ export function PreviewCanvas({
   const hoverX = hovering ? Math.sin(hT) * 10 : 0
   const hoverY = hovering ? Math.sin(hT * 2) * 6 : 0
   const hoverScale = hovering ? 1 + Math.sin(hT) * 0.008 : 1
+
+  // seamless-loop wrap: fade (+ a subtle scale pop) the card to nothing at both ends of the take,
+  // so it materialises at the start and dissolves at the end — last frame == first. Background /
+  // parallax layers stay (they're loop-periodic already); only the window + its reflection fade.
+  const loopEnv = loopFade(timeline, progress, settings.loopWrap)
+  const loopScale = 0.965 + 0.035 * loopEnv
 
   // floor reflection: an explicit, content-fitted mirror of the window rendered just below it, so it
   // hugs the visible code instead of the reserved full-height box (which left a floating gap for
@@ -849,7 +867,8 @@ export function PreviewCanvas({
             style={{
               transform: `${parOn ? `translate(${winX}px, ${winY}px) ` : ''}${
                 hovering ? `translate(${hoverX}px, ${hoverY}px) ` : ''
-              }scale(${(scale * hoverScale).toFixed(4)})`,
+              }scale(${(scale * hoverScale * loopScale).toFixed(4)})`,
+              opacity: loopEnv,
               perspective: tilted ? '1600px' : undefined,
             }}
           >
