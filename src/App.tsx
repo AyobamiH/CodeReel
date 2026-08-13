@@ -24,6 +24,8 @@ const DEFAULT_SETTINGS: Settings = {
   brandOn: false,
   mode: 'sequence',
   code: SAMPLES.typescript,
+  annotations: [],
+  annotationStyle: 'badge',
   console: '',
   consoleDur: 2.5,
   consoleStatus: 'success',

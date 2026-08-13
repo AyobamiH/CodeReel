@@ -5,13 +5,27 @@ import * as THREE from 'three'
 import type { Settings } from '../lib/types'
 import { CONSOLE_STATUSES, FONTS } from '../lib/types'
 import { BACKGROUNDS, THEMES } from '../lib/themes'
-import { tokenizeLines } from '../lib/highlight'
+import { lineLength, tokenizeLines } from '../lib/highlight'
 import { buildTimeline, locate, type Phase } from '../lib/timeline'
-import { drawCard, measureCard, type CardStyle } from '../lib/codeTexture'
+import { drawAnnotationPill, drawCard, measureCard, type CardStyle } from '../lib/codeTexture'
 import { addedIndices, diffLineStatus } from '../lib/diff'
 
 /** uv.y band covering a step's added lines, for the hero-line spotlight. */
 type SpotBand = { lo: number; hi: number } | null
+
+/** A laid-out annotation: anchor in local card space + its pill texture/size. */
+interface AnnoItem {
+  id: string
+  color: string
+  tex: THREE.Texture
+  /** anchor x (end of the line) in local card coords */
+  cx: number
+  /** anchor y (centre of the line) in local card coords */
+  cy: number
+  /** pill size in world units */
+  w: number
+  h: number
+}
 
 /**
  * Tier 3 — a real WebGL renderer (React Three Fiber). Opt-in via `settings.renderer`.
@@ -603,6 +617,7 @@ function Rig({
   consoleTex,
   redrawConsole,
   spotBands,
+  annoLayout,
 }: {
   settings: Settings
   progress: number
@@ -616,6 +631,8 @@ function Rig({
   redrawConsole: (step: number, reveal: number) => void
   /** per-step uv.y band of added lines, for the hero-line spotlight */
   spotBands: SpotBand[]
+  /** per-snapshot laid-out annotations (separate 3D objects) */
+  annoLayout: AnnoItem[][]
 }) {
   const { camera, size, invalidate } = useThree()
   const cardRef = useRef<THREE.Mesh>(null)
@@ -860,6 +877,13 @@ function Rig({
     invalidate,
   ])
 
+  // annotations show only once the code has settled; positioned per style
+  const aPhase = locate(timeline, progress).phase
+  const settledAnno = aPhase.kind === 'hold' || aPhase.kind === 'console' || aPhase.kind === 'outro'
+  const curAnnos = settledAnno ? (annoLayout[aPhase.step] ?? []) : []
+  const aStyle = settings.annotationStyle
+  const aGap = 0.06
+
   return (
     <>
       {/* themed scene-FX backdrop — filled + scaled in the effect above */}
@@ -890,12 +914,43 @@ function Rig({
           opacity={0}
         />
       </mesh>
-      {/* card + its floor reflection (child, so it inherits tilt/drift) */}
+      {/* card + its floor reflection + annotations (children inherit tilt/drift) */}
       <mesh ref={cardRef} material={material}>
         <planeGeometry args={[planeW, planeH, 1, 1]} />
         <mesh material={reflectMat} position={[0, -planeH, 0]}>
           <planeGeometry args={[planeW, planeH, 1, 1]} />
         </mesh>
+        {curAnnos.map((a) => {
+          const pillX = aStyle === 'callout' ? planeW / 2 + aGap + a.w / 2 : a.cx + aGap + a.w / 2
+          const pillZ = aStyle === 'depth' ? 0.4 : 0.03
+          const pillScale = aStyle === 'depth' ? 1.15 : 1
+          return (
+            <group key={a.id}>
+              {/* line highlight bar */}
+              <mesh position={[0, a.cy, 0.004]}>
+                <planeGeometry args={[planeW, a.h * 0.9, 1, 1]} />
+                <meshBasicMaterial color={a.color} transparent opacity={0.13} depthWrite={false} />
+              </mesh>
+              {/* connector out to the callout pill */}
+              {aStyle === 'callout' && (
+                <mesh position={[(a.cx + planeW / 2) / 2, a.cy, 0.02]}>
+                  <planeGeometry args={[Math.max(0.01, planeW / 2 - a.cx), 0.014, 1, 1]} />
+                  <meshBasicMaterial
+                    color={a.color}
+                    transparent
+                    opacity={0.85}
+                    depthWrite={false}
+                  />
+                </mesh>
+              )}
+              {/* the caption pill */}
+              <mesh position={[pillX, a.cy, pillZ]} scale={[pillScale, pillScale, 1]}>
+                <planeGeometry args={[a.w, a.h, 1, 1]} />
+                <meshBasicMaterial map={a.tex} transparent depthWrite={false} />
+              </mesh>
+            </group>
+          )
+        })}
       </mesh>
       {/* ambient particles + success confetti — sized in the effect above */}
       <mesh ref={overlayRef} material={overlayMat} renderOrder={9}>
@@ -990,77 +1045,121 @@ export function WebGLScene({
     return [tokenizeLines(settings.code, settings.language)]
   }, [isSteps, settings.steps, settings.code, settings.language])
 
+  // line annotations, parallel to `snapshots`
+  const snapAnnos = useMemo(
+    () => (isSteps ? settings.steps.map((s) => s.annotations ?? []) : [settings.annotations ?? []]),
+    [isSteps, settings.steps, settings.annotations],
+  )
+
   const glow = useMemo(() => makeGlowTexture(), [])
   useEffect(() => () => glow.dispose(), [glow])
 
   // rasterize every snapshot into a common box → identical texture sizes → clean shader UVs
-  const { textures, planeW, planeH, consoleTex, redrawConsole, spotBands } = useMemo(() => {
-    const metrics = snapshots.map((lines) => measureCard(lines, cardStyle))
-    const boxW = Math.max(...metrics.map((m) => m.w))
-    const boxH = Math.max(...metrics.map((m) => m.h))
-    const dpr = Math.min(2, typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1)
-    const mkTex = (cv: HTMLCanvasElement) => {
-      const tex = new THREE.CanvasTexture(cv)
-      tex.colorSpace = THREE.SRGBColorSpace
-      tex.minFilter = THREE.LinearMipmapLinearFilter
-      tex.magFilter = THREE.LinearFilter
-      tex.anisotropy = 8
-      tex.needsUpdate = true
-      return tex
-    }
-    // base snapshots: console space reserved (all cards same height) but not drawn
-    const texes = snapshots.map((lines) => {
-      const cv = document.createElement('canvas')
-      drawCard(cv, lines, cardStyle, dpr, boxW, boxH, -1)
-      return mkTex(cv)
-    })
+  const { textures, planeW, planeH, consoleTex, redrawConsole, spotBands, annoLayout } =
+    useMemo(() => {
+      const metrics = snapshots.map((lines) => measureCard(lines, cardStyle))
+      const boxW = Math.max(...metrics.map((m) => m.w))
+      const boxH = Math.max(...metrics.map((m) => m.h))
+      const dpr = Math.min(2, typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1)
+      const mkTex = (cv: HTMLCanvasElement) => {
+        const tex = new THREE.CanvasTexture(cv)
+        tex.colorSpace = THREE.SRGBColorSpace
+        tex.minFilter = THREE.LinearMipmapLinearFilter
+        tex.magFilter = THREE.LinearFilter
+        tex.anisotropy = 8
+        tex.needsUpdate = true
+        return tex
+      }
+      // base snapshots: console space reserved (all cards same height) but not drawn
+      const texes = snapshots.map((lines) => {
+        const cv = document.createElement('canvas')
+        drawCard(cv, lines, cardStyle, dpr, boxW, boxH, -1)
+        return mkTex(cv)
+      })
 
-    // a dynamic texture that types the console out during the console phase
-    const hasConsole = cardStyle.consoleLines.length > 0
-    const consoleCanvas = hasConsole ? document.createElement('canvas') : null
-    const consoleTexture = consoleCanvas ? mkTex(consoleCanvas) : null
-    const redrawConsole = (step: number, reveal: number) => {
-      if (!consoleCanvas) return
-      drawCard(consoleCanvas, snapshots[step] ?? snapshots[0], cardStyle, dpr, boxW, boxH, reveal)
-      if (consoleTexture) consoleTexture.needsUpdate = true
-    }
+      // a dynamic texture that types the console out during the console phase
+      const hasConsole = cardStyle.consoleLines.length > 0
+      const consoleCanvas = hasConsole ? document.createElement('canvas') : null
+      const consoleTexture = consoleCanvas ? mkTex(consoleCanvas) : null
+      const redrawConsole = (step: number, reveal: number) => {
+        if (!consoleCanvas) return
+        drawCard(consoleCanvas, snapshots[step] ?? snapshots[0], cardStyle, dpr, boxW, boxH, reveal)
+        if (consoleTexture) consoleTexture.needsUpdate = true
+      }
 
-    // hero-line spotlight: for each step, the uv.y band covering its added lines
-    const spotBands: SpotBand[] = isSteps
-      ? snapshots.map((_, i) => {
-          if (i === 0) return null
-          const added = addedIndices(
-            diffLineStatus(settings.steps[i - 1].code, settings.steps[i].code),
-          )
-          if (!added.length) return null
-          const m = metrics[i]
-          const offY = (boxH - m.h) / 2
-          const lineH = cardStyle.lineHeightPx
-          const yTop = offY + m.codeTop + Math.min(...added) * lineH
-          const yBot = offY + m.codeTop + (Math.max(...added) + 1) * lineH
-          return { lo: 1 - yBot / boxH, hi: 1 - yTop / boxH }
-        })
-      : []
+      // hero-line spotlight: for each step, the uv.y band covering its added lines
+      const spotBands: SpotBand[] = isSteps
+        ? snapshots.map((_, i) => {
+            if (i === 0) return null
+            const added = addedIndices(
+              diffLineStatus(settings.steps[i - 1].code, settings.steps[i].code),
+            )
+            if (!added.length) return null
+            const m = metrics[i]
+            const offY = (boxH - m.h) / 2
+            const lineH = cardStyle.lineHeightPx
+            const yTop = offY + m.codeTop + Math.min(...added) * lineH
+            const yBot = offY + m.codeTop + (Math.max(...added) + 1) * lineH
+            return { lo: 1 - yBot / boxH, hi: 1 - yTop / boxH }
+          })
+        : []
 
-    // world-space plane: fixed height, width from the box aspect
-    const H = 2.6
-    const W = H * (boxW / boxH)
-    return {
-      textures: texes,
-      planeW: W,
-      planeH: H,
-      consoleTex: consoleTexture,
-      redrawConsole,
-      spotBands,
-    }
-  }, [snapshots, cardStyle, isSteps, settings.steps])
+      // world-space plane: fixed height, width from the box aspect
+      const H = 2.6
+      const W = H * (boxW / boxH)
+
+      // annotations as separate 3D objects — anchor (line end) in local card space +
+      // a rasterized pill texture; positioned/styled per annotationStyle in the Rig.
+      const scale = H / boxH // world units per logical px (uniform, since W/boxW == H/boxH)
+      const accent = cardStyle.theme.swatch[1]
+      const pillFont = Math.round(cardStyle.fontSize * 0.82)
+      const annoLayout: AnnoItem[][] = snapshots.map((lines, s) => {
+        const m = metrics[s]
+        const offX = (boxW - m.w) / 2
+        const offY = (boxH - m.h) / 2
+        return (snapAnnos[s] ?? [])
+          .filter((a) => a.text.trim() && a.line >= 1 && a.line <= lines.length)
+          .map((a) => {
+            const text = a.text.trim()
+            const color = a.color || accent
+            const endX = offX + m.contentX + lineLength(lines[a.line - 1] ?? []) * m.cw
+            const midY = offY + m.codeTop + (a.line - 0.5) * cardStyle.lineHeightPx
+            const pill = drawAnnotationPill(text, color, cardStyle.fontStack, pillFont, dpr)
+            const tex = new THREE.CanvasTexture(pill.canvas)
+            tex.colorSpace = THREE.SRGBColorSpace
+            tex.minFilter = THREE.LinearMipmapLinearFilter
+            tex.magFilter = THREE.LinearFilter
+            tex.needsUpdate = true
+            return {
+              id: a.id,
+              color,
+              tex,
+              cx: (endX / boxW - 0.5) * W,
+              cy: (1 - midY / boxH - 0.5) * H,
+              w: pill.w * scale,
+              h: pill.h * scale,
+            }
+          })
+      })
+
+      return {
+        textures: texes,
+        planeW: W,
+        planeH: H,
+        consoleTex: consoleTexture,
+        redrawConsole,
+        spotBands,
+        annoLayout,
+      }
+    }, [snapshots, snapAnnos, cardStyle, isSteps, settings.steps])
 
   useEffect(
     () => () => {
       textures.forEach((t) => t.dispose())
       consoleTex?.dispose()
+      annoLayout.flat().forEach((a) => a.tex.dispose())
     },
-    [textures, consoleTex],
+    [textures, consoleTex, annoLayout],
   )
 
   const bloomIntensity = 0.35 + (settings.bloom / 100) * 1.1 + (FX_BLOOM[settings.sceneFx] ?? 0)
@@ -1089,6 +1188,7 @@ export function WebGLScene({
           consoleTex={consoleTex}
           redrawConsole={redrawConsole}
           spotBands={spotBands}
+          annoLayout={annoLayout}
         />
         <EffectComposer>
           <Bloom

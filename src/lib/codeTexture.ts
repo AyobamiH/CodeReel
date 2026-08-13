@@ -40,6 +40,7 @@ const CONSOLE_GAP = 20 // space between code block and the console box
 const CONSOLE_HEADER_H = 34
 const CONSOLE_BODY_PAD = 12
 const CONSOLE_INNER_X = 14 // left inset of console text within its box
+const ANNO_PAD_X = 12 // horizontal padding inside an annotation pill
 
 const clamp01 = (t: number) => Math.min(1, Math.max(0, t))
 
@@ -331,4 +332,37 @@ export function drawCard(
   ctx.clearRect(0, 0, boxW, boxH)
   paintCard(ctx, lines, style, m, (boxW - m.w) / 2, (boxH - m.h) / 2, consoleReveal)
   return m
+}
+
+/**
+ * Rasterize a single annotation pill (rounded rect + caption) onto its own
+ * canvas, for use as a WebGL texture. Returns the canvas + its logical size.
+ */
+export function drawAnnotationPill(
+  text: string,
+  color: string,
+  fontStack: string,
+  fontSize: number,
+  dpr: number,
+): { canvas: HTMLCanvasElement; w: number; h: number } {
+  const canvas = document.createElement('canvas')
+  const ctx = canvas.getContext('2d')!
+  const font = `600 ${fontSize}px ${fontStack}`
+  ctx.font = font
+  const tw = ctx.measureText(text).width
+  const w = Math.ceil(tw + ANNO_PAD_X * 2)
+  const h = Math.ceil(fontSize + 12)
+  canvas.width = Math.ceil(w * dpr)
+  canvas.height = Math.ceil(h * dpr)
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+  ctx.clearRect(0, 0, w, h)
+  roundRectPath(ctx, 0.5, 0.5, w - 1, h - 1, h / 2)
+  ctx.fillStyle = color
+  ctx.fill()
+  ctx.font = font
+  ctx.fillStyle = '#0b0b12'
+  ctx.textAlign = 'left'
+  ctx.textBaseline = 'middle'
+  ctx.fillText(text, ANNO_PAD_X, h / 2 + 0.5)
+  return { canvas, w, h }
 }

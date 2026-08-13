@@ -1,5 +1,5 @@
 import { useMemo, type ReactNode } from 'react'
-import type { Settings } from '../lib/types'
+import type { Annotation, AnnotationStyle, Settings } from '../lib/types'
 import { ASPECTS, CONSOLE_STATUSES, FONTS } from '../lib/types'
 import { BACKGROUNDS, THEMES } from '../lib/themes'
 import { lineLength, tokenizeLines, type Token } from '../lib/highlight'
@@ -64,6 +64,10 @@ interface RowCtx {
   lineHeightPx: number
   /** depth-of-field intensity 0..100 — how far revealing lines sit back + blur */
   dof: number
+  /** accent colour for annotation callouts */
+  accent: string
+  /** how annotation callouts are displayed */
+  annoStyle: AnnotationStyle
 }
 
 function CodeRow({
@@ -79,6 +83,7 @@ function CodeRow({
   blur = 0,
   highlight = 0,
   added = 0,
+  note,
   clip = false,
   caret,
 }: {
@@ -95,6 +100,8 @@ function CodeRow({
   highlight?: number
   /** 0..1 "freshly added" green glow intensity (diff reveal) */
   added?: number
+  /** annotation caption pinned to this line */
+  note?: { text: string; color: string }
   clip?: boolean
   caret?: ReactNode
 }) {
@@ -115,14 +122,18 @@ function CodeRow({
         background:
           added > 0
             ? `rgba(52,211,153,${0.18 * added})`
-            : highlight > 0
-              ? `rgba(124,131,253,${0.16 * highlight})`
-              : undefined,
+            : note
+              ? `${note.color}22`
+              : highlight > 0
+                ? `rgba(124,131,253,${0.16 * highlight})`
+                : undefined,
         boxShadow:
           added > 0
             ? `inset 2px 0 0 0 rgba(52,211,153,${added}), 0 0 16px rgba(52,211,153,${0.3 * added})`
-            : undefined,
-        borderRadius: added > 0 || highlight > 0 ? 4 : undefined,
+            : note
+              ? `inset 3px 0 0 0 ${note.color}`
+              : undefined,
+        borderRadius: added > 0 || highlight > 0 || note ? 4 : undefined,
       }}
     >
       {ctx.lineNumbers && (
@@ -136,6 +147,32 @@ function CodeRow({
       <span>
         {tokens.length ? <TokenSpans tokens={tokens} colors={ctx.colors} fg={ctx.fg} /> : ' '}
         {caret}
+        {note && (
+          <>
+            {ctx.annoStyle === 'callout' && (
+              <span
+                className="mx-2 inline-block h-px w-8 align-middle"
+                style={{ background: note.color }}
+              />
+            )}
+            <span
+              className={`inline-block rounded-full px-2 py-0.5 align-middle text-[0.8em] font-medium ${
+                ctx.annoStyle === 'callout' ? '' : 'ml-4'
+              }`}
+              style={{
+                background: note.color,
+                color: '#0b0b12',
+                boxShadow:
+                  ctx.annoStyle === 'depth'
+                    ? `0 4px 10px -1px ${note.color}88, 0 0 0 1px rgba(255,255,255,0.25) inset`
+                    : undefined,
+                transform: ctx.annoStyle === 'depth' ? 'translateY(-1px) scale(1.06)' : undefined,
+              }}
+            >
+              {note.text}
+            </span>
+          </>
+        )}
       </span>
     </div>
   )
@@ -316,9 +353,14 @@ function tokenRows(lines: Token[][], revealT: number, ctx: RowCtx): ReactNode[] 
   })
 }
 
-/** Fully-revealed snapshot (used while a step holds). */
-function fullRows(lines: Token[][], ctx: RowCtx): ReactNode[] {
-  return lines.map((line, i) => <CodeRow key={i} ctx={ctx} idx={i} tokens={line} />)
+/** Fully-revealed snapshot (used while a step holds), with any line annotations. */
+function fullRows(lines: Token[][], ctx: RowCtx, annotations: Annotation[] = []): ReactNode[] {
+  const anno = new Map<number, { text: string; color: string }>()
+  for (const a of annotations)
+    if (a.text.trim()) anno.set(a.line, { text: a.text.trim(), color: a.color || ctx.accent })
+  return lines.map((line, i) => (
+    <CodeRow key={i} ctx={ctx} idx={i} tokens={line} note={anno.get(i + 1)} />
+  ))
 }
 
 /** Diff reveal: carried-over lines sit still, inserted lines grow + glow into place. */
@@ -482,6 +524,8 @@ export function PreviewCanvas({
     lineNumbers: settings.lineNumbers,
     lineHeightPx,
     dof: settings.dof,
+    accent: theme.swatch[1],
+    annoStyle: settings.annotationStyle,
   }
 
   // sequence mode: one snapshot
@@ -511,18 +555,21 @@ export function PreviewCanvas({
   // resolve the active phase once — it drives both the code frame and the console
   const { phase, localT } = locate(timeline, progress)
 
+  // annotations for the snapshot currently on screen (shown once it's settled)
+  const curAnnos = isSteps ? (settings.steps[phase.step]?.annotations ?? []) : settings.annotations
+
   // build the inner code rows for the current frame
   let codeRows: ReactNode
   if (!isSteps) {
     codeRows =
       phase.kind === 'console' || phase.kind === 'outro'
-        ? fullRows(seqLines, ctx)
+        ? fullRows(seqLines, ctx, curAnnos)
         : revealRows(seqLines, settings.animation, localT, playing, ctx)
   } else if (phase.kind === 'reveal') {
     codeRows = revealRows(stepLines[0] ?? [], settings.animation, localT, playing, ctx)
   } else if (phase.kind === 'hold' || phase.kind === 'console' || phase.kind === 'outro') {
     // during the console phase the final step stays fully revealed
-    codeRows = fullRows(stepLines[phase.step] ?? [], ctx)
+    codeRows = fullRows(stepLines[phase.step] ?? [], ctx, curAnnos)
   } else {
     // transition from → step
     const nextLines = stepLines[phase.step] ?? []

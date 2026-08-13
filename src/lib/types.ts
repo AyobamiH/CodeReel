@@ -69,6 +69,39 @@ export const CONSOLE_STATUSES: { id: ConsoleStatus; label: string; dot: string }
   { id: 'error', label: 'Error', dot: '#f87171' },
 ]
 
+/** A "look here" callout pinned to a code line, with a short caption. */
+export interface Annotation {
+  id: string
+  /** 1-based line number the callout points at */
+  line: number
+  /** caption text shown in the pill */
+  text: string
+  /** pill colour (hex); empty/undefined = the theme accent */
+  color?: string
+}
+
+/** How annotation callouts are displayed. */
+export type AnnotationStyle = 'badge' | 'depth' | 'callout'
+
+export const ANNOTATION_STYLES: { id: AnnotationStyle; label: string }[] = [
+  { id: 'badge', label: 'Badge' },
+  { id: 'depth', label: '3D depth' },
+  { id: 'callout', label: 'Callout' },
+]
+
+/** Standard annotation colours ('' = follow the theme accent). */
+export const ANNOTATION_COLORS: { id: string; label: string; hex: string }[] = [
+  { id: 'accent', label: 'Accent', hex: '' },
+  { id: 'red', label: 'Red', hex: '#f87171' },
+  { id: 'orange', label: 'Orange', hex: '#fb923c' },
+  { id: 'yellow', label: 'Yellow', hex: '#fbbf24' },
+  { id: 'green', label: 'Green', hex: '#34d399' },
+  { id: 'blue', label: 'Blue', hex: '#60a5fa' },
+  { id: 'purple', label: 'Purple', hex: '#c084fc' },
+  { id: 'pink', label: 'Pink', hex: '#f472b6' },
+  { id: 'grey', label: 'Grey', hex: '#94a3b8' },
+]
+
 export interface Step {
   id: string
   /** Full code snapshot at this step. */
@@ -77,6 +110,8 @@ export interface Step {
   title: string
   /** Transition used to reach this step from the previous one; null = use global default. */
   transition: TransitionStyle | null
+  /** line callouts for this step */
+  annotations: Annotation[]
 }
 
 export const ASPECTS: { id: Aspect; ratio: number; res: string }[] = [
@@ -107,6 +142,10 @@ export interface Settings {
   // input
   mode: InputMode
   code: string
+  /** line callouts for sequence mode (steps carry their own) */
+  annotations: Annotation[]
+  /** how annotation callouts are displayed */
+  annotationStyle: AnnotationStyle
   /** console output shown below the code; empty = no console section rendered */
   console: string
   /** seconds the console section takes to type out */
