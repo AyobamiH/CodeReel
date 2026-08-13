@@ -78,6 +78,7 @@ function CodeRow({
   rotX = 0,
   blur = 0,
   highlight = 0,
+  added = 0,
   clip = false,
   caret,
 }: {
@@ -92,6 +93,8 @@ function CodeRow({
   rotX?: number
   blur?: number
   highlight?: number
+  /** 0..1 "freshly added" green glow intensity (diff reveal) */
+  added?: number
   clip?: boolean
   caret?: ReactNode
 }) {
@@ -109,8 +112,17 @@ function CodeRow({
         transformOrigin: rotX ? '50% 0%' : undefined,
         filter: blur ? `blur(${blur}px)` : undefined,
         overflow: clip ? 'hidden' : undefined,
-        background: highlight > 0 ? `rgba(124,131,253,${0.16 * highlight})` : undefined,
-        borderRadius: highlight > 0 ? 4 : undefined,
+        background:
+          added > 0
+            ? `rgba(52,211,153,${0.18 * added})`
+            : highlight > 0
+              ? `rgba(124,131,253,${0.16 * highlight})`
+              : undefined,
+        boxShadow:
+          added > 0
+            ? `inset 2px 0 0 0 rgba(52,211,153,${added}), 0 0 16px rgba(52,211,153,${0.3 * added})`
+            : undefined,
+        borderRadius: added > 0 || highlight > 0 ? 4 : undefined,
       }}
     >
       {ctx.lineNumbers && (
@@ -309,7 +321,8 @@ function diffRows(nextLines: Token[][], status: LineStatus[], t: number, ctx: Ro
         tokens={line}
         heightPx={r * ctx.lineHeightPx}
         opacity={clamp01(r * 1.4)}
-        highlight={1 - r}
+        tx={(1 - r) * -26}
+        added={1 - r}
         clip
       />
     )

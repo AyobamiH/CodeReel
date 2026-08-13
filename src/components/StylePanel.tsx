@@ -8,6 +8,7 @@ import {
   ArrowUpLeft,
   ArrowUpRight,
   Check,
+  Dices,
   Paintbrush,
   Square,
   type LucideIcon,
@@ -15,6 +16,7 @@ import {
 import type { Settings, SceneFx } from '../lib/types'
 import { FONTS, SCENE_FX } from '../lib/types'
 import { BACKGROUNDS, THEMES } from '../lib/themes'
+import { PRESETS, randomVibe } from '../lib/presets'
 import { Row, Section, Segmented, Select, Slider, Toggle } from './ui'
 
 /** 3×3 pad of tilt directions; (0,0) is face-on. */
@@ -43,6 +45,31 @@ export function StylePanel({
         <Paintbrush className="h-4 w-4 text-accent-400" />
         Style
       </div>
+
+      <Section title="Presets">
+        <div className="grid grid-cols-3 gap-2">
+          {PRESETS.map((p) => (
+            <button
+              key={p.id}
+              type="button"
+              title={`Apply the ${p.label} vibe`}
+              onClick={() => update(p.patch)}
+              className="flex cursor-pointer flex-col items-center gap-1 rounded-lg border border-white/8 bg-white/[0.02] py-2 text-[11px] text-zinc-400 transition-all duration-150 hover:border-accent-500/50 hover:bg-accent-500/10 hover:text-white"
+            >
+              <span className="text-base leading-none">{p.emoji}</span>
+              {p.label}
+            </button>
+          ))}
+        </div>
+        <button
+          type="button"
+          onClick={() => update(randomVibe())}
+          className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg border border-white/8 bg-white/[0.02] py-2 text-[12px] font-medium text-zinc-300 transition-all duration-150 hover:border-accent-500/50 hover:bg-accent-500/10 hover:text-white"
+        >
+          <Dices className="h-4 w-4" />
+          Surprise me
+        </button>
+      </Section>
 
       <Section title="Renderer">
         <Row label="Engine">
@@ -264,6 +291,22 @@ export function StylePanel({
           unit="%"
           onChange={(v) => update({ sweep: v })}
         />
+      </Section>
+
+      <Section title="Branding">
+        <Row label="Watermark">
+          <Toggle checked={settings.brandOn} onChange={(v) => update({ brandOn: v })} />
+        </Row>
+        <input
+          type="text"
+          value={settings.brand}
+          onChange={(e) => update({ brand: e.target.value })}
+          placeholder="@yourhandle"
+          className="w-full rounded-lg border border-white/10 bg-ink-800 px-3 py-1.5 text-[13px] text-zinc-200 transition-colors placeholder:text-zinc-600 hover:border-white/20 focus:border-accent-500 focus:outline-none"
+        />
+        <p className="text-[11px] leading-snug text-zinc-600">
+          Adds a corner watermark, plus a “Follow” card on the end hold — great for social.
+        </p>
       </Section>
 
       <Section title="Typography">

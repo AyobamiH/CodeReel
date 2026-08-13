@@ -1,0 +1,208 @@
+import type { AnimationStyle, Settings, TransitionStyle } from './types'
+import { SCENE_FX } from './types'
+import { BACKGROUNDS, THEMES } from './themes'
+
+/** A one-click "vibe": a curated bundle of visual settings applied together. */
+export interface Preset {
+  id: string
+  label: string
+  emoji: string
+  patch: Partial<Settings>
+}
+
+/** Shared look knobs every preset sets, so switching vibes is fully deterministic. */
+const BASE = {
+  customBg: null,
+  outro: 3,
+} satisfies Partial<Settings>
+
+export const PRESETS: Preset[] = [
+  {
+    id: 'clean',
+    label: 'Clean',
+    emoji: '✨',
+    patch: {
+      ...BASE,
+      renderer: 'dom',
+      sceneFx: 'none',
+      themeId: 'dracula',
+      backgroundId: 'aurora',
+      animation: 'flip',
+      transition: 'diff',
+      tilt: 12,
+      tiltX: -1,
+      tiltY: 1,
+      bloom: 30,
+      dof: 50,
+      reflection: 30,
+      sweep: 30,
+      parallax: 35,
+      radius: 12,
+      shadow: 55,
+    },
+  },
+  {
+    id: 'hacker',
+    label: 'Hacker',
+    emoji: '👾',
+    patch: {
+      ...BASE,
+      renderer: 'webgl',
+      sceneFx: 'matrix',
+      themeId: 'github-dark',
+      backgroundId: 'mono',
+      animation: 'tokens',
+      transition: 'diff',
+      tilt: 10,
+      tiltX: -1,
+      tiltY: 1,
+      bloom: 45,
+      dof: 40,
+      reflection: 25,
+      sweep: 40,
+      parallax: 20,
+      radius: 10,
+      shadow: 60,
+    },
+  },
+  {
+    id: 'neon',
+    label: 'Neon',
+    emoji: '🌟',
+    patch: {
+      ...BASE,
+      renderer: 'webgl',
+      sceneFx: 'neon',
+      themeId: 'tokyo-night',
+      backgroundId: 'candy',
+      animation: 'flip',
+      transition: 'crossfade',
+      tilt: 14,
+      tiltX: 1,
+      tiltY: 1,
+      bloom: 70,
+      dof: 50,
+      reflection: 40,
+      sweep: 50,
+      parallax: 30,
+      radius: 16,
+      shadow: 50,
+    },
+  },
+  {
+    id: 'synthwave',
+    label: 'Synthwave',
+    emoji: '🌆',
+    patch: {
+      ...BASE,
+      renderer: 'webgl',
+      sceneFx: 'synthwave',
+      themeId: 'dracula',
+      backgroundId: 'ember',
+      animation: 'slide',
+      transition: 'flip3d',
+      tilt: 12,
+      tiltX: -1,
+      tiltY: 1,
+      bloom: 60,
+      dof: 45,
+      reflection: 45,
+      sweep: 40,
+      parallax: 30,
+      radius: 14,
+      shadow: 55,
+    },
+  },
+  {
+    id: 'hologram',
+    label: 'Hologram',
+    emoji: '🔮',
+    patch: {
+      ...BASE,
+      renderer: 'webgl',
+      sceneFx: 'hologram',
+      themeId: 'nord',
+      backgroundId: 'slate',
+      animation: 'fade',
+      transition: 'crossfade',
+      tilt: 10,
+      tiltX: 1,
+      tiltY: -1,
+      bloom: 55,
+      dof: 60,
+      reflection: 35,
+      sweep: 45,
+      parallax: 35,
+      radius: 14,
+      shadow: 50,
+    },
+  },
+  {
+    id: 'retro',
+    label: 'Retro',
+    emoji: '📼',
+    patch: {
+      ...BASE,
+      renderer: 'webgl',
+      sceneFx: 'crt',
+      themeId: 'monokai',
+      backgroundId: 'mono',
+      animation: 'typewriter',
+      transition: 'typewriter',
+      tilt: 6,
+      tiltX: 0,
+      tiltY: 1,
+      bloom: 35,
+      dof: 30,
+      reflection: 20,
+      sweep: 30,
+      parallax: 15,
+      radius: 8,
+      shadow: 45,
+    },
+  },
+]
+
+const pick = <T>(arr: readonly T[]): T => arr[Math.floor(Math.random() * arr.length)]
+const rand = (lo: number, hi: number) => lo + Math.floor(Math.random() * (hi - lo + 1))
+
+const ANIMATIONS: AnimationStyle[] = ['typewriter', 'fade', 'slide', 'flip', 'tokens']
+const TRANSITIONS: TransitionStyle[] = ['diff', 'crossfade', 'typewriter', 'flip3d']
+const TILT_DIRS: [number, number][] = [
+  [-1, -1],
+  [0, -1],
+  [1, -1],
+  [-1, 0],
+  [1, 0],
+  [-1, 1],
+  [0, 1],
+  [1, 1],
+]
+
+/**
+ * "Surprise me" — a randomised vibe. Randomness here only picks *settings*
+ * (a one-off UI action), never anything drawn per-frame, so the rendered
+ * output stays a pure function of `progress`.
+ */
+export function randomVibe(): Partial<Settings> {
+  const [tiltX, tiltY] = pick(TILT_DIRS)
+  return {
+    renderer: 'webgl',
+    sceneFx: pick(SCENE_FX.filter((f) => f.id !== 'none')).id,
+    themeId: pick(THEMES).id,
+    backgroundId: pick(BACKGROUNDS.filter((b) => b.id !== 'none')).id,
+    customBg: null,
+    animation: pick(ANIMATIONS),
+    transition: pick(TRANSITIONS),
+    tiltX,
+    tiltY,
+    tilt: rand(8, 20),
+    bloom: rand(35, 80),
+    dof: rand(30, 70),
+    reflection: rand(20, 55),
+    sweep: rand(25, 60),
+    parallax: rand(15, 45),
+    radius: rand(8, 20),
+    outro: 3,
+  }
+}

@@ -25,14 +25,29 @@ const clamp01 = (t: number) => Math.min(1, Math.max(0, t))
 // map a step transition style → shader mode
 const MODE: Record<string, number> = { crossfade: 0, diff: 1, typewriter: 2, flip3d: 3 }
 
+// map the Motion option → reveal style in the shader (flip = the original reveal)
+const MOTION: Record<string, number> = { typewriter: 0, fade: 1, slide: 2, flip: 3, tokens: 4 }
+
 // scene FX: index for the shaders + optional accent-colour override + bloom boost
-const FX: Record<string, number> = { none: 0, glitch: 1, matrix: 2, halloween: 3, neon: 4 }
+const FX: Record<string, number> = {
+  none: 0,
+  glitch: 1,
+  matrix: 2,
+  halloween: 3,
+  neon: 4,
+  hologram: 5,
+  synthwave: 6,
+  crt: 7,
+}
 const FX_ACCENT: Record<string, string | null> = {
   none: null,
   glitch: '#a0f0ff',
   matrix: '#39ff14',
   halloween: '#ff7518',
   neon: '#ff2fd0',
+  hologram: '#5ffbf1',
+  synthwave: '#ff4fd8',
+  crt: '#4dff88',
 }
 const FX_BLOOM: Record<string, number> = {
   none: 0,
@@ -40,6 +55,9 @@ const FX_BLOOM: Record<string, number> = {
   matrix: 0.4,
   halloween: 0.2,
   neon: 0.9,
+  hologram: 0.6,
+  synthwave: 0.7,
+  crt: 0.35,
 }
 
 const VERT = /* glsl */ `
@@ -66,6 +84,7 @@ const FRAG = /* glsl */ `
   uniform float uReflectStr; // reflection strength (0..1)
   uniform int   uFx;         // scene FX: 0 none, 1 glitch, 2 matrix, 3 halloween, 4 neon
   uniform float uFxT;        // progress-driven FX phase (0..1) — deterministic, no clock
+  uniform int   uMotion;     // reveal style: 0 type, 1 fade, 2 slide, 3 flip, 4 tokens
 
   float hash(vec2 p) {
     p = fract(p * vec2(123.34, 456.21));
@@ -74,16 +93,61 @@ const FRAG = /* glsl */ `
   }
   float hash1(float n) { return fract(sin(n * 127.1) * 43758.5453); }
 
-  // top-to-bottom reveal with a soft glowing frontier; revealing band emerges
-  // from soft depth (mip-bias defocus) and sharpens as it settles — the DOF cue.
+  // Reveal the card as a function of r (0..1). One variant per Motion option;
+  // all pure in r, so it stays export-deterministic. Revealing pixels emerge
+  // from soft depth (mip-bias defocus) via uDof and sharpen as they settle.
   vec4 sampleReveal(sampler2D tex, vec2 uv, float r) {
-    float front = mix(1.08, -0.08, r);
-    float soft = 0.05;
-    float vis = smoothstep(front - soft, front + soft, uv.y);
-    vec4 c = texture2D(tex, uv, (1.0 - vis) * uDof * 4.0);
-    float edge = 1.0 - smoothstep(0.0, soft * 2.4, abs(uv.y - front));
-    c.rgb += edge * 0.55 * vis;
-    c *= mix(0.55, 1.0, vis);
+    // FLIP (default) — the original glowing top-to-bottom frontier; unchanged
+    if (uMotion == 3) {
+      float front = mix(1.08, -0.08, r);
+      float soft = 0.05;
+      float vis = smoothstep(front - soft, front + soft, uv.y);
+      vec4 c = texture2D(tex, uv, (1.0 - vis) * uDof * 4.0);
+      float edge = 1.0 - smoothstep(0.0, soft * 2.4, abs(uv.y - front));
+      c.rgb += edge * 0.55 * vis;
+      c *= mix(0.55, 1.0, vis);
+      return c;
+    }
+
+    float top = 1.0 - uv.y; // reading order: 0 at the top, 1 at the bottom
+    float p;                // per-pixel reveal order
+    float pMax;
+    float band;             // frontier softness
+    vec2 suv = uv;
+
+    if (uMotion == 0) {
+      // TYPE — reading-order wipe (top→bottom, slight left→right) + caret glow
+      p = top * 0.92 + uv.x * 0.08;
+      pMax = 1.0;
+      band = 0.12;
+    } else if (uMotion == 2) {
+      // SLIDE — top-to-bottom, content slides in from the left
+      p = top;
+      pMax = 1.0;
+      band = 0.22;
+    } else if (uMotion == 4) {
+      // TOKENS — grainy dissolve cascade in reading order
+      p = top * 0.72 + hash(floor(uv * vec2(120.0, 90.0))) * 0.5;
+      pMax = 1.22;
+      band = 0.14;
+    } else {
+      // FADE — soft, near-uniform with a gentle top-first bias
+      p = top * 0.5;
+      pMax = 0.5;
+      band = 0.8;
+    }
+
+    // frontier f sweeps past every pixel by r=1, so the card is fully shown on hold
+    float f = mix(-band, pMax + band, r);
+    float vis = clamp((f - p) / band + 0.5, 0.0, 1.0);
+
+    if (uMotion == 2) suv.x += (1.0 - vis) * 0.16; // slide offset
+    vec4 c = texture2D(tex, suv, (1.0 - vis) * uDof * 3.0);
+    if (uMotion == 0 || uMotion == 4) {
+      float edge = 1.0 - clamp(abs(f - p) / (band * 1.4), 0.0, 1.0);
+      c.rgb += edge * 0.5 * vis;
+    }
+    c *= vis;
     return c;
   }
 
@@ -170,6 +234,25 @@ const FRAG = /* glsl */ `
       // NEON: punchy saturation (bloom does the rest)
       float lum = dot(col.rgb, vec3(0.299, 0.587, 0.114));
       col.rgb = mix(vec3(lum), col.rgb, 1.5);
+    } else if (uFx == 5) {
+      // HOLOGRAM: cyan lean + interlace lines + a faint drifting scan bar
+      col.rgb = mix(col.rgb, col.rgb * vec3(0.7, 1.05, 1.15), 0.5);
+      col.rgb *= 1.0 - 0.12 * step(0.5, fract(vUv.y * 300.0));
+      float scan = smoothstep(0.06, 0.0, abs(fract(vUv.y - uFxT * 1.5) - 0.5));
+      col.rgb += col.a * scan * vec3(0.15, 0.45, 0.5);
+    } else if (uFx == 6) {
+      // SYNTHWAVE: magenta→cyan duotone by luminance
+      float lum = dot(col.rgb, vec3(0.299, 0.587, 0.114));
+      vec3 duo = mix(vec3(0.25, 0.0, 0.35), vec3(1.0, 0.35, 0.85), smoothstep(0.15, 0.75, lum));
+      duo = mix(duo, vec3(0.35, 1.0, 1.0), smoothstep(0.75, 1.0, lum));
+      col.rgb = mix(col.rgb, duo, 0.5);
+    } else if (uFx == 7) {
+      // RETRO CRT: green phosphor + scanlines + barrel vignette
+      float lum = dot(col.rgb, vec3(0.299, 0.587, 0.114));
+      col.rgb = mix(col.rgb, vec3(0.25, 1.0, 0.45) * lum * 1.1, 0.55);
+      col.rgb *= 1.0 - 0.14 * step(0.5, fract(vUv.y * 210.0));
+      float v = smoothstep(1.25, 0.5, length((vUv - 0.5) * vec2(1.1, 1.3)));
+      col.rgb *= mix(0.7, 1.0, v);
     }
 
     gl_FragColor = col;
@@ -197,6 +280,7 @@ function makeCardMaterial(reflect: boolean): THREE.ShaderMaterial {
       uReflectStr: { value: 0 },
       uFx: { value: 0 },
       uFxT: { value: 0 },
+      uMotion: { value: 3 },
     },
   })
 }
@@ -269,6 +353,29 @@ const BACKDROP_FRAG = /* glsl */ `
       float line = smoothstep(0.5, 0.46, min(grid.x, grid.y));
       col = uColor * line * (0.1 + 0.7 * uv.y);
       col += uColor * 0.05;
+    } else if (uFx == 5) {
+      // HOLOGRAM: dark base + drifting interlace + soft grid dots
+      col = vec3(0.01, 0.03, 0.05);
+      float lines = 0.5 + 0.5 * sin((uv.y - uFxT * 0.6) * 220.0);
+      col += uColor * lines * 0.06;
+      vec2 gd = abs(fract(vec2(uv.x * uAspect, uv.y) * 20.0) - 0.5);
+      col += uColor * smoothstep(0.5, 0.47, min(gd.x, gd.y)) * 0.12;
+    } else if (uFx == 6) {
+      // SYNTHWAVE: sunset gradient + sun + perspective floor grid
+      col = mix(vec3(0.35, 0.05, 0.35), vec3(0.05, 0.02, 0.15), smoothstep(0.35, 1.0, uv.y));
+      float sun = smoothstep(0.28, 0.0, length((uv - vec2(0.5, 0.62)) * vec2(uAspect, 1.6)));
+      col = mix(col, vec3(1.0, 0.75, 0.3), sun * step(fract(uv.y * 26.0), 0.6) * step(0.45, uv.y));
+      if (uv.y < 0.42) {
+        vec2 p = vec2((uv.x - 0.5) / (uv.y + 0.05), 1.0 / (uv.y + 0.05) + uFxT * 2.0);
+        vec2 gr = abs(fract(p * vec2(3.0, 1.0)) - 0.5);
+        col += vec3(1.0, 0.3, 0.9) * smoothstep(0.49, 0.45, min(gr.x, gr.y)) * (0.42 - uv.y) * 2.0;
+      }
+    } else if (uFx == 7) {
+      // RETRO CRT: dark green scanlined tube with a rolling refresh bar
+      col = vec3(0.0, 0.03, 0.01);
+      col += vec3(0.1, 0.9, 0.3) * (0.5 + 0.5 * sin(uv.y * 380.0)) * 0.05;
+      float roll = smoothstep(0.12, 0.0, abs(fract(uv.y - uFxT * 0.5) - 0.5));
+      col += vec3(0.1, 0.7, 0.25) * roll * 0.12;
     } else {
       a = 0.0;
     }
@@ -378,6 +485,8 @@ function Rig({
   const glowMatRef = useRef<THREE.MeshBasicMaterial>(null)
   const shadowMatRef = useRef<THREE.MeshBasicMaterial>(null)
   const backdropRef = useRef<THREE.Mesh>(null)
+  const flashRef = useRef<THREE.Mesh>(null)
+  const flashMatRef = useRef<THREE.MeshBasicMaterial>(null)
 
   const theme = THEMES.find((t) => t.id === settings.themeId) ?? THEMES[0]
 
@@ -424,6 +533,7 @@ function Rig({
       u.uDof.value = settings.dof / 100
       u.uFx.value = fx
       u.uFxT.value = progress
+      u.uMotion.value = MOTION[settings.animation] ?? 3
     }
     // sheen direction follows the tilt so the "light" tracks the card angle
     material.uniforms.uSheen.value.set(0.5 + settings.tiltX * 0.5, 0.5 + settings.tiltY * 0.5)
@@ -506,6 +616,20 @@ function Rig({
     camera.position.set(0, 0, fit + dolly)
     camera.lookAt(0, 0, 0)
 
+    // --- first-frame hook: a quick "power-on" flash over the opening reveal ---
+    if (flashRef.current && flashMatRef.current) {
+      const intro = phase.kind === 'reveal' ? clamp01((0.14 - localT) / 0.14) : 0
+      flashMatRef.current.opacity = intro * intro * 0.7
+      flashRef.current.visible = intro > 0.001
+      if (intro > 0.001) {
+        const camZ = fit + dolly
+        const fz = camZ - 1.5 // sit just in front of the camera so it fills the view
+        const fvh = 2 * 1.5 * Math.tan(fov / 2)
+        flashRef.current.position.z = fz
+        flashRef.current.scale.set(fvh * viewAspect * 1.3, fvh * 1.3, 1)
+      }
+    }
+
     invalidate()
   }, [
     progress,
@@ -563,6 +687,19 @@ function Rig({
         <mesh material={reflectMat} position={[0, -planeH, 0]}>
           <planeGeometry args={[planeW, planeH, 1, 1]} />
         </mesh>
+      </mesh>
+      {/* power-on flash — sized + faded in the effect above, drawn on top */}
+      <mesh ref={flashRef} renderOrder={10} visible={false}>
+        <planeGeometry args={[1, 1, 1, 1]} />
+        <meshBasicMaterial
+          ref={flashMatRef}
+          color="#ffffff"
+          transparent
+          opacity={0}
+          depthTest={false}
+          depthWrite={false}
+          blending={THREE.AdditiveBlending}
+        />
       </mesh>
     </>
   )

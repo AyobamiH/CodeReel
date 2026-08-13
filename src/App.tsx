@@ -7,6 +7,7 @@ import { TopBar } from './components/TopBar'
 import { CodePanel, makeDefaultSteps } from './components/CodePanel'
 import { StylePanel } from './components/StylePanel'
 import { PreviewCanvas } from './components/PreviewCanvas'
+import { BrandOverlay } from './components/BrandOverlay'
 // WebGL renderer is opt-in; lazy-load it so the three.js/R3F bundle isn't paid for
 // unless the user switches to the WebGL 3D engine.
 const WebGLScene = lazy(() =>
@@ -18,6 +19,8 @@ import { ExportModal } from './components/ExportModal'
 const DEFAULT_SETTINGS: Settings = {
   renderer: 'dom',
   sceneFx: 'none',
+  brand: '',
+  brandOn: false,
   mode: 'sequence',
   code: SAMPLES.typescript,
   console: '',
@@ -133,27 +136,30 @@ export default function App() {
           setActiveStep={setActiveStep}
         />
         <main className="flex min-w-0 flex-1 flex-col">
-          {settings.renderer === 'webgl' ? (
-            <Suspense
-              fallback={
-                <div className="stage-grid flex min-h-0 flex-1 items-center justify-center text-sm text-zinc-500">
-                  Loading 3D renderer…
-                </div>
-              }
-            >
-              <WebGLScene
+          <div className="relative flex min-h-0 flex-1">
+            {settings.renderer === 'webgl' ? (
+              <Suspense
+                fallback={
+                  <div className="stage-grid flex min-h-0 flex-1 items-center justify-center text-sm text-zinc-500">
+                    Loading 3D renderer…
+                  </div>
+                }
+              >
+                <WebGLScene
+                  settings={settings}
+                  progress={playback.progress}
+                  playing={playback.playing}
+                />
+              </Suspense>
+            ) : (
+              <PreviewCanvas
                 settings={settings}
                 progress={playback.progress}
                 playing={playback.playing}
               />
-            </Suspense>
-          ) : (
-            <PreviewCanvas
-              settings={settings}
-              progress={playback.progress}
-              playing={playback.playing}
-            />
-          )}
+            )}
+            <BrandOverlay settings={settings} progress={playback.progress} />
+          </div>
           <PlaybackBar
             settings={settings}
             update={update}

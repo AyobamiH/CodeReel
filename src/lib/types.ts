@@ -24,14 +24,18 @@ export type InputMode = 'sequence' | 'steps'
 export type Renderer = 'dom' | 'webgl'
 
 /** Themed scene effect for the WebGL renderer (backdrop + card colour treatment). */
-export type SceneFx = 'none' | 'glitch' | 'matrix' | 'halloween' | 'neon'
+export type SceneFx =
+  'none' | 'glitch' | 'matrix' | 'halloween' | 'neon' | 'hologram' | 'synthwave' | 'crt'
 
 export const SCENE_FX: { id: SceneFx; label: string }[] = [
   { id: 'none', label: 'None' },
   { id: 'glitch', label: 'Glitch' },
   { id: 'matrix', label: 'Matrix' },
-  { id: 'halloween', label: 'Halloween' },
+  { id: 'hologram', label: 'Hologram' },
+  { id: 'synthwave', label: 'Synthwave' },
+  { id: 'crt', label: 'Retro CRT' },
   { id: 'neon', label: 'Neon' },
+  { id: 'halloween', label: 'Halloween' },
 ]
 
 /** How a step reveals its inserted code relative to the previous step. */
@@ -82,6 +86,10 @@ export interface Settings {
   renderer: Renderer
   /** themed scene effect for the WebGL renderer */
   sceneFx: SceneFx
+  /** social handle / brand shown as a watermark + end-card CTA ('' = off) */
+  brand: string
+  /** whether the brand watermark + end card are shown */
+  brandOn: boolean
   // input
   mode: InputMode
   code: string

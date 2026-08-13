@@ -1,5 +1,6 @@
 import {
   Braces,
+  Grip,
   Keyboard,
   MoveRight,
   Pause,
@@ -7,9 +8,11 @@ import {
   Repeat,
   RotateCcw,
   Rotate3d,
+  ScanLine,
   SkipBack,
   SkipForward,
   Sparkles,
+  type LucideIcon,
 } from 'lucide-react'
 import type { AnimationStyle, Settings } from '../lib/types'
 import type { Playback } from '../lib/usePlayback'
@@ -19,6 +22,58 @@ import { Segmented, Select } from './ui'
 function fmt(seconds: number): string {
   return `${seconds.toFixed(1)}s`
 }
+
+/**
+ * Motion options. The DOM and WebGL renderers reveal differently, so each option
+ * carries a WebGL-specific label/icon/title that describes what you actually see
+ * in 3D mode (e.g. the flip reveal is a glowing scan, tokens is a pixel dissolve).
+ */
+interface MotionOpt {
+  value: AnimationStyle
+  label: string
+  title: string
+  Icon: LucideIcon
+  /** WebGL-mode overrides (fall back to the DOM values when absent) */
+  wLabel?: string
+  wTitle?: string
+  WIcon?: LucideIcon
+}
+
+const MOTIONS: MotionOpt[] = [
+  {
+    value: 'typewriter',
+    label: 'Type',
+    title: 'Typewriter',
+    Icon: Keyboard,
+    wTitle: 'Type-on wipe',
+  },
+  { value: 'fade', label: 'Fade', title: 'Fade lines in', Icon: Sparkles, wTitle: 'Soft fade in' },
+  {
+    value: 'slide',
+    label: 'Slide',
+    title: 'Slide lines in',
+    Icon: MoveRight,
+    wTitle: 'Slide in from the left',
+  },
+  {
+    value: 'flip',
+    label: '3D',
+    title: '3D flip-up reveal',
+    Icon: Rotate3d,
+    wLabel: 'Scan',
+    wTitle: 'Glowing top-down scan',
+    WIcon: ScanLine,
+  },
+  {
+    value: 'tokens',
+    label: 'Tokens',
+    title: 'Per-token cascade',
+    Icon: Braces,
+    wLabel: 'Dissolve',
+    wTitle: 'Grainy pixel dissolve',
+    WIcon: Grip,
+  },
+]
 
 export function PlaybackBar({
   settings,
@@ -158,53 +213,19 @@ export function PlaybackBar({
               update({ animation: v })
               playback.restart()
             }}
-            options={[
-              {
-                value: 'typewriter',
-                title: 'Typewriter',
+            options={MOTIONS.map((m) => {
+              const webgl = settings.renderer === 'webgl'
+              const Icon = (webgl && m.WIcon) || m.Icon
+              return {
+                value: m.value,
+                title: (webgl && m.wTitle) || m.title,
                 label: (
                   <span className="flex items-center gap-1.5">
-                    <Keyboard className="h-3.5 w-3.5" /> Type
+                    <Icon className="h-3.5 w-3.5" /> {(webgl && m.wLabel) || m.label}
                   </span>
                 ),
-              },
-              {
-                value: 'fade',
-                title: 'Fade lines in',
-                label: (
-                  <span className="flex items-center gap-1.5">
-                    <Sparkles className="h-3.5 w-3.5" /> Fade
-                  </span>
-                ),
-              },
-              {
-                value: 'slide',
-                title: 'Slide lines in',
-                label: (
-                  <span className="flex items-center gap-1.5">
-                    <MoveRight className="h-3.5 w-3.5" /> Slide
-                  </span>
-                ),
-              },
-              {
-                value: 'flip',
-                title: '3D flip-up reveal',
-                label: (
-                  <span className="flex items-center gap-1.5">
-                    <Rotate3d className="h-3.5 w-3.5" /> 3D
-                  </span>
-                ),
-              },
-              {
-                value: 'tokens',
-                title: 'Per-token cascade',
-                label: (
-                  <span className="flex items-center gap-1.5">
-                    <Braces className="h-3.5 w-3.5" /> Tokens
-                  </span>
-                ),
-              },
-            ]}
+              }
+            })}
           />
         </div>
 
