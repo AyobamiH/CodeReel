@@ -151,6 +151,8 @@ export interface Settings {
   bloom: number
   /** light-sweep sheen that passes across the code as it reveals (0 = off) */
   sweep: number
+  /** ambient floating particles in the WebGL scene (0 = off) */
+  particles: number
   animation: AnimationStyle
   duration: number
   speed: number

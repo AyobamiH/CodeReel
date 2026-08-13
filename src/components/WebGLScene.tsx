@@ -440,6 +440,80 @@ function makeBackdropMaterial(): THREE.ShaderMaterial {
   })
 }
 
+/** Front overlay: ambient floating particles + a success-confetti burst. */
+const OVERLAY_FRAG = /* glsl */ `
+  precision highp float;
+  varying vec2 vUv;
+  uniform float uParticles; // ambient intensity 0..1
+  uniform float uConfetti;  // success burst progress 0..1 (0 = off)
+  uniform float uFxT;       // progress
+  uniform float uAspect;
+  uniform vec3  uColor;
+
+  vec3 h3(float n) { return fract(sin(vec3(n, n + 11.3, n + 27.7)) * 43758.5453); }
+
+  void main() {
+    vec2 uv = vUv;
+    vec3 col = vec3(0.0);
+    float a = 0.0;
+
+    if (uParticles > 0.001) {
+      for (int i = 0; i < 22; i++) {
+        float fi = float(i);
+        vec3 r = h3(fi * 1.7 + 3.0);
+        float speed = 0.15 + r.z * 0.45;
+        float py = fract(r.y - uFxT * speed); // drift upward
+        float sway = sin((py + fi) * 6.2831 + uFxT * 3.0) * 0.02;
+        vec2 p = vec2(fract(r.x + sway), py);
+        float d = length((uv - p) * vec2(uAspect, 1.0));
+        float tw = 0.55 + 0.45 * sin(uFxT * 22.0 + fi * 2.3); // twinkle
+        float s = smoothstep(0.006, 0.0, d) * tw;
+        col += uColor * s;
+        a += s;
+      }
+      col *= uParticles;
+      a *= uParticles * 0.7;
+    }
+
+    if (uConfetti > 0.001) {
+      float t = uConfetti;
+      for (int i = 0; i < 44; i++) {
+        float fi = float(i);
+        vec3 r = h3(fi * 2.3 + 9.0);
+        float up = 0.4 + r.z * 0.5;
+        vec2 dir = (r.xy - 0.5) * 2.0;
+        vec2 p = vec2(0.5 + dir.x * 0.55 * t, 0.5 + up * t - 1.1 * t * t); // burst up then fall
+        float d = length((uv - p) * vec2(uAspect, 1.0));
+        vec3 cc = 0.5 + 0.5 * cos(6.2831 * fi * 0.13 + vec3(0.0, 2.1, 4.2)); // rainbow
+        float sz = mix(0.014, 0.004, t);
+        float s = smoothstep(sz, 0.0, d) * (1.0 - t);
+        col += cc * s * 2.2;
+        a += s;
+      }
+    }
+
+    gl_FragColor = vec4(col, clamp(a, 0.0, 1.0));
+  }
+`
+
+function makeOverlayMaterial(): THREE.ShaderMaterial {
+  return new THREE.ShaderMaterial({
+    vertexShader: VERT,
+    fragmentShader: OVERLAY_FRAG,
+    transparent: true,
+    depthWrite: false,
+    depthTest: false,
+    blending: THREE.AdditiveBlending,
+    uniforms: {
+      uParticles: { value: 0 },
+      uConfetti: { value: 0 },
+      uFxT: { value: 0 },
+      uAspect: { value: 1.6 },
+      uColor: { value: new THREE.Color('#ffffff') },
+    },
+  })
+}
+
 /** Radial-gradient sprite used for the accent glow behind the card. */
 function makeGlowTexture(): THREE.CanvasTexture {
   const s = 256
@@ -528,6 +602,7 @@ function Rig({
   const backdropRef = useRef<THREE.Mesh>(null)
   const flashRef = useRef<THREE.Mesh>(null)
   const flashMatRef = useRef<THREE.MeshBasicMaterial>(null)
+  const overlayRef = useRef<THREE.Mesh>(null)
 
   const theme = THEMES.find((t) => t.id === settings.themeId) ?? THEMES[0]
 
@@ -538,13 +613,15 @@ function Rig({
   const material = useMemo(() => makeCardMaterial(false), [])
   const reflectMat = useMemo(() => makeCardMaterial(true), [])
   const backdropMat = useMemo(() => makeBackdropMaterial(), [])
+  const overlayMat = useMemo(() => makeOverlayMaterial(), [])
   useEffect(
     () => () => {
       material.dispose()
       reflectMat.dispose()
       backdropMat.dispose()
+      overlayMat.dispose()
     },
-    [material, reflectMat, backdropMat],
+    [material, reflectMat, backdropMat, overlayMat],
   )
 
   const timeline = useMemo(() => buildTimeline(settings), [settings])
@@ -692,6 +769,28 @@ function Rig({
       }
     }
 
+    // --- ambient particles + success confetti overlay (front, additive) ---
+    if (overlayRef.current) {
+      const u = overlayMat.uniforms
+      u.uParticles.value = settings.particles / 100
+      const celebrate =
+        phase.kind === 'console' &&
+        settings.consoleStatus === 'success' &&
+        settings.console.trim() !== ''
+      u.uConfetti.value = celebrate ? clamp01(localT) : 0
+      u.uFxT.value = progress
+      u.uAspect.value = viewAspect
+      u.uColor.value.set(fxAccent ?? theme.swatch[1])
+      const on = settings.particles > 0 || u.uConfetti.value > 0
+      overlayMat.visible = on
+      if (on) {
+        const oz = camZ - 1.2
+        const ovh = 2 * 1.2 * Math.tan(fov / 2)
+        overlayRef.current.position.z = oz
+        overlayRef.current.scale.set(ovh * viewAspect * 1.3, ovh * 1.3, 1)
+      }
+    }
+
     invalidate()
   }, [
     progress,
@@ -708,6 +807,7 @@ function Rig({
     material,
     reflectMat,
     backdropMat,
+    overlayMat,
     consoleTex,
     redrawConsole,
     invalidate,
@@ -749,6 +849,10 @@ function Rig({
         <mesh material={reflectMat} position={[0, -planeH, 0]}>
           <planeGeometry args={[planeW, planeH, 1, 1]} />
         </mesh>
+      </mesh>
+      {/* ambient particles + success confetti — sized in the effect above */}
+      <mesh ref={overlayRef} material={overlayMat} renderOrder={9}>
+        <planeGeometry args={[1, 1, 1, 1]} />
       </mesh>
       {/* power-on flash — sized + faded in the effect above, drawn on top */}
       <mesh ref={flashRef} renderOrder={10} visible={false}>

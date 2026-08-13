@@ -52,6 +52,7 @@ const DEFAULT_SETTINGS: Settings = {
   reflection: 30,
   bloom: 30,
   sweep: 30,
+  particles: 30,
   animation: 'flip',
   duration: 5,
   speed: 1,

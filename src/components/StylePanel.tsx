@@ -303,6 +303,16 @@ export function StylePanel({
           unit="%"
           onChange={(v) => update({ sweep: v })}
         />
+        {settings.renderer === 'webgl' && (
+          <Slider
+            label="Ambient particles"
+            value={settings.particles}
+            min={0}
+            max={100}
+            unit="%"
+            onChange={(v) => update({ particles: v })}
+          />
+        )}
       </Section>
 
       <Section title="Branding">
