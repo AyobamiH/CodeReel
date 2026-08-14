@@ -222,14 +222,13 @@ export function PlaybackBar({
               playback.restart()
             }}
             options={MOTIONS.map((m) => {
-              const webgl = settings.renderer === 'webgl'
-              const Icon = (webgl && m.WIcon) || m.Icon
+              const Icon = m.WIcon || m.Icon
               return {
                 value: m.value,
-                title: (webgl && m.wTitle) || m.title,
+                title: m.wTitle || m.title,
                 label: (
                   <span className="flex items-center gap-1.5">
-                    <Icon className="h-3.5 w-3.5" /> {(webgl && m.wLabel) || m.label}
+                    <Icon className="h-3.5 w-3.5" /> {m.wLabel || m.label}
                   </span>
                 ),
               }

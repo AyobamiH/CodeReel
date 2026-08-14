@@ -23,7 +23,7 @@ export const PRESETS: Preset[] = [
     emoji: '✨',
     patch: {
       ...BASE,
-      renderer: 'dom',
+      renderer: 'webgl',
       sceneFx: 'none',
       camera: 'dolly',
       themeId: 'dracula',

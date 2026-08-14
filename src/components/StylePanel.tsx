@@ -17,7 +17,7 @@ import type { Settings, SceneFx, CameraMove } from '../lib/types'
 import { CAMERA_MOVES, FONTS, SCENE_FX } from '../lib/types'
 import { BACKGROUNDS, THEMES } from '../lib/themes'
 import { PRESETS, randomVibe } from '../lib/presets'
-import { Row, Section, Segmented, Select, Slider, Toggle } from './ui'
+import { Row, Section, Select, Slider, Toggle } from './ui'
 
 /** 3×3 pad of tilt directions; (0,0) is face-on. */
 const TILT_PAD: { x: number; y: number; Icon: LucideIcon; title: string }[] = [
@@ -69,19 +69,6 @@ export function StylePanel({
           <Dices className="h-4 w-4" />
           Surprise me
         </button>
-      </Section>
-
-      <Section title="Renderer">
-        <Row label="Engine">
-          <Segmented
-            value={settings.renderer}
-            onChange={(v) => update({ renderer: v })}
-            options={[
-              { value: 'dom', label: 'DOM', title: 'CSS/DOM renderer' },
-              { value: 'webgl', label: 'WebGL 3D', title: 'React Three Fiber renderer' },
-            ]}
-          />
-        </Row>
       </Section>
 
       <Section title="Theme">
@@ -208,30 +195,22 @@ export function StylePanel({
       </Section>
 
       <Section title="3D">
-        {settings.renderer === 'webgl' && (
-          <>
-            <div>
-              <div className="mb-1.5 text-[13px] text-zinc-400">
-                Scene FX <span className="text-zinc-600">(WebGL)</span>
-              </div>
-              <Select
-                value={settings.sceneFx}
-                options={SCENE_FX.map((f) => ({ value: f.id, label: f.label }))}
-                onChange={(v) => update({ sceneFx: v as SceneFx })}
-              />
-            </div>
-            <div>
-              <div className="mb-1.5 text-[13px] text-zinc-400">
-                Camera <span className="text-zinc-600">(WebGL)</span>
-              </div>
-              <Select
-                value={settings.camera}
-                options={CAMERA_MOVES.map((c) => ({ value: c.id, label: c.label }))}
-                onChange={(v) => update({ camera: v as CameraMove })}
-              />
-            </div>
-          </>
-        )}
+        <div>
+          <div className="mb-1.5 text-[13px] text-zinc-400">Scene FX</div>
+          <Select
+            value={settings.sceneFx}
+            options={SCENE_FX.map((f) => ({ value: f.id, label: f.label }))}
+            onChange={(v) => update({ sceneFx: v as SceneFx })}
+          />
+        </div>
+        <div>
+          <div className="mb-1.5 text-[13px] text-zinc-400">Camera</div>
+          <Select
+            value={settings.camera}
+            options={CAMERA_MOVES.map((c) => ({ value: c.id, label: c.label }))}
+            onChange={(v) => update({ camera: v as CameraMove })}
+          />
+        </div>
         <div>
           <div className="mb-1.5 text-[13px] text-zinc-400">Perspective</div>
           <div className="grid w-[108px] grid-cols-3 gap-1">
@@ -263,29 +242,14 @@ export function StylePanel({
           unit="°"
           onChange={(v) => update({ tilt: v })}
         />
-        {/* Depth of field + Parallax are real DOM effects but have no meaningful effect in the
-            WebGL renderer (dof only softens the reveal frontier; parallax drift is imperceptible),
-            so they're hidden there — only controls that change the WebGL output are shown. */}
-        {settings.renderer === 'dom' && (
-          <>
-            <Slider
-              label="Depth of field"
-              value={settings.dof}
-              min={0}
-              max={100}
-              unit="%"
-              onChange={(v) => update({ dof: v })}
-            />
-            <Slider
-              label="Parallax"
-              value={settings.parallax}
-              min={0}
-              max={100}
-              unit="%"
-              onChange={(v) => update({ parallax: v })}
-            />
-          </>
-        )}
+        <Slider
+          label="Depth of field"
+          value={settings.dof}
+          min={0}
+          max={100}
+          unit="%"
+          onChange={(v) => update({ dof: v })}
+        />
         <Slider
           label="Reflection"
           value={settings.reflection}
@@ -310,46 +274,38 @@ export function StylePanel({
           unit="%"
           onChange={(v) => update({ sweep: v })}
         />
-        {settings.renderer === 'webgl' && (
-          <Slider
-            label="Ambient particles"
-            value={settings.particles}
-            min={0}
-            max={100}
-            unit="%"
-            onChange={(v) => update({ particles: v })}
-          />
-        )}
-        {settings.renderer === 'webgl' && (
-          <Slider
-            label="Hero spotlight"
-            value={settings.spotlight}
-            min={0}
-            max={100}
-            unit="%"
-            onChange={(v) => update({ spotlight: v })}
-          />
-        )}
-        {settings.renderer === 'webgl' && (
-          <Slider
-            label="Card thickness"
-            value={settings.slab}
-            min={0}
-            max={100}
-            unit="%"
-            onChange={(v) => update({ slab: v })}
-          />
-        )}
-        {settings.renderer === 'webgl' && (
-          <Slider
-            label="Glossy floor"
-            value={settings.floor}
-            min={0}
-            max={100}
-            unit="%"
-            onChange={(v) => update({ floor: v })}
-          />
-        )}
+        <Slider
+          label="Ambient particles"
+          value={settings.particles}
+          min={0}
+          max={100}
+          unit="%"
+          onChange={(v) => update({ particles: v })}
+        />
+        <Slider
+          label="Hero spotlight"
+          value={settings.spotlight}
+          min={0}
+          max={100}
+          unit="%"
+          onChange={(v) => update({ spotlight: v })}
+        />
+        <Slider
+          label="Card thickness"
+          value={settings.slab}
+          min={0}
+          max={100}
+          unit="%"
+          onChange={(v) => update({ slab: v })}
+        />
+        <Slider
+          label="Glossy floor"
+          value={settings.floor}
+          min={0}
+          max={100}
+          unit="%"
+          onChange={(v) => update({ floor: v })}
+        />
       </Section>
 
       <Section title="Branding">

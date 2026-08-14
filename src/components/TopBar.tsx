@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Clapperboard, Film, Star } from 'lucide-react'
-import type { Aspect, Format, Settings } from '../lib/types'
+import type { Aspect, Settings } from '../lib/types'
 import { fetchGitHubStarCount, GITHUB_REPOSITORY_URL } from '../lib/github'
 import { Segmented } from './ui'
 
@@ -98,22 +98,13 @@ export function TopBar({
             { value: '9:16', label: '9:16', title: 'Portrait · 1080×1920' },
           ]}
         />
-        <Segmented<Format>
-          value={settings.format}
-          onChange={(v) => update({ format: v })}
-          options={[
-            { value: 'mp4', label: 'MP4' },
-            { value: 'gif', label: 'GIF' },
-            { value: 'webm', label: 'WebM' },
-          ]}
-        />
         <button
           type="button"
           onClick={onExport}
           className="flex cursor-pointer items-center gap-2 rounded-xl bg-gradient-to-br from-accent-500 to-fuchsia-500 px-4 py-2 text-[13px] font-semibold text-white shadow-lg shadow-accent-500/25 transition-all duration-150 hover:brightness-110 active:scale-[0.97]"
         >
           <Clapperboard className="h-4 w-4" />
-          Export video
+          Export GIF
         </button>
       </div>
     </header>

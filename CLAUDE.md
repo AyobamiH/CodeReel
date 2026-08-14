@@ -1,28 +1,37 @@
 # CodeReel
 
 Turns code into an animated video. React + TypeScript + Vite + Tailwind v4.
-Currently a UI prototype — the video **export is a mock** (`ExportModal.tsx`,
-"encoder isn't wired up yet").
+**GIF export is real** — `ExportModal.tsx` drives `lib/export/gif.ts`, which steps
+`progress` 0→1, draws each WebGL frame on demand, and encodes with `gifenc`.
+(MP4/WebM are not wired up yet; Remotion/headless Chromium stays a future option
+for those.)
+
+The **WebGL renderer (`WebGLScene.tsx`, React Three Fiber) is the sole renderer.**
+The old DOM/CSS renderer (`PreviewCanvas.tsx`) has been retired — CSS 3D can't be
+rasterized in-browser, so it couldn't be exported.
 
 ## Core architectural rule (important)
 
-The preview renders as a **pure function of `progress` (0→1)**. `PreviewCanvas`
+The preview renders as a **pure function of `progress` (0→1)**. `WebGLScene`
 takes `progress` as a prop; `usePlayback` owns the wall-clock and feeds it in.
+Export swaps that source: it feeds discrete `progress` values instead.
 
 **Any new visual effect must be a pure function of `progress` — no wall-clock in
 anything drawn into a frame** (no CSS `@keyframes`/`animation`/`transition`, no
 `requestAnimationFrame`/`setInterval`/`Date.now()`/`performance.now()`, no
 unseeded `Math.random()`). Derive motion from `progress`, e.g. `x = progress * k`.
 
-This is what lets a future video export (Remotion / headless Chromium) reuse the
-exact same rendering code with **no rework**. Keep the rule and export "comes for
-free" later.
+This is what lets export reuse the exact same rendering code with **no rework**.
 
 ## Key files
 
-- `src/components/PreviewCanvas.tsx` — the renderer (all reveals/transitions/3D)
+- `src/components/WebGLScene.tsx` — the renderer (all reveals/transitions/3D, R3F)
+- `src/lib/export/gif.ts` — GIF exporter (frame-steps `progress`, composites
+  background + canvas + brand overlay, encodes via `gifenc`)
 - `src/lib/timeline.ts` — stepped-mode timeline (`buildTimeline`, `locate`), pure
-- `src/lib/usePlayback.ts` — the rAF clock; **the swap point for export**
+- `src/lib/usePlayback.ts` — the rAF clock (live preview); export bypasses it and
+  drives frames via `App`'s `renderAt` → R3F `advance()` (no rAF, so a backgrounded
+  tab doesn't stall the export)
 - `src/lib/types.ts` — `Settings` + option lists
 
 ## 3D effects roadmap

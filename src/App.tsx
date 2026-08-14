@@ -1,4 +1,5 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { flushSync } from 'react-dom'
 import type { Settings } from './lib/types'
 import { SAMPLES } from './lib/samples'
 import { usePlayback } from './lib/usePlayback'
@@ -6,10 +7,9 @@ import { buildTimeline, currentStep, stepAnchor } from './lib/timeline'
 import { TopBar } from './components/TopBar'
 import { CodePanel, makeDefaultSteps } from './components/CodePanel'
 import { StylePanel } from './components/StylePanel'
-import { PreviewCanvas } from './components/PreviewCanvas'
 import { BrandOverlay } from './components/BrandOverlay'
-// WebGL renderer is opt-in; lazy-load it so the three.js/R3F bundle isn't paid for
-// unless the user switches to the WebGL 3D engine.
+// WebGL is the sole renderer; lazy-load it so the three.js/R3F bundle isn't part of
+// the initial paint (a lightweight fallback shows while it streams in).
 const WebGLScene = lazy(() =>
   import('./components/WebGLScene').then((m) => ({ default: m.WebGLScene })),
 )
@@ -17,7 +17,7 @@ import { PlaybackBar } from './components/PlaybackBar'
 import { ExportModal } from './components/ExportModal'
 
 const DEFAULT_SETTINGS: Settings = {
-  renderer: 'dom',
+  renderer: 'webgl',
   sceneFx: 'none',
   camera: 'dolly',
   brand: '',
@@ -64,12 +64,15 @@ const DEFAULT_SETTINGS: Settings = {
   speed: 1,
   loop: true,
   aspect: '16:9',
-  format: 'mp4',
+  format: 'gif',
 }
 
 export default function App() {
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS)
   const [exporting, setExporting] = useState(false)
+  // while exporting, the scene is driven frame-by-frame from this override
+  // (null = normal wall-clock playback)
+  const [exportProgress, setExportProgress] = useState<number | null>(null)
   const [activeStep, setActiveStep] = useState(0)
 
   const update = useCallback((patch: Partial<Settings>) => {
@@ -82,6 +85,38 @@ export default function App() {
 
   const playback = usePlayback(effectiveDuration, settings.speed, settings.loop)
   const { restart, toggle, seek, pause, playTo } = playback
+
+  // WebGLScene registers R3F's `advance()` here so the exporter can draw a frame
+  // on demand — no requestAnimationFrame, so it doesn't stall when the tab is
+  // backgrounded (rAF throttles to ~0 when hidden).
+  const exportRenderRef = useRef<((t: number) => void) | null>(null)
+  const exportClockRef = useRef(0)
+  const registerExportRender = useCallback((fn: ((t: number) => void) | null) => {
+    exportRenderRef.current = fn
+  }, [])
+
+  // Drive the WebGL scene to an exact progress and render that frame synchronously.
+  // flushSync commits the new progress — WebGLScene's useLayoutEffect applies every
+  // per-frame update (uniforms, camera, positions) during that commit — then
+  // advance() draws the composed frame (incl. bloom) straight to the canvas.
+  const renderAt = useCallback(async (p: number) => {
+    flushSync(() => setExportProgress(p))
+    exportClockRef.current += 16
+    exportRenderRef.current?.(exportClockRef.current)
+  }, [])
+
+  const beginExport = useCallback(() => {
+    pause()
+    setExportProgress(0)
+    setExporting(true)
+  }, [pause])
+
+  const endExport = useCallback(() => {
+    setExporting(false)
+    setExportProgress(null)
+  }, [])
+
+  const sceneProgress = exportProgress ?? playback.progress
 
   // editing content / switching language / mode restarts the take
   useEffect(() => {
@@ -135,7 +170,7 @@ export default function App() {
 
   return (
     <div className="flex h-full flex-col bg-ink-950 text-zinc-200">
-      <TopBar settings={settings} update={update} onExport={() => setExporting(true)} />
+      <TopBar settings={settings} update={update} onExport={beginExport} />
       <div className="flex min-h-0 flex-1">
         <CodePanel
           settings={settings}
@@ -145,28 +180,21 @@ export default function App() {
         />
         <main className="flex min-w-0 flex-1 flex-col">
           <div className="relative flex min-h-0 flex-1">
-            {settings.renderer === 'webgl' ? (
-              <Suspense
-                fallback={
-                  <div className="stage-grid flex min-h-0 flex-1 items-center justify-center text-sm text-zinc-500">
-                    Loading 3D renderer…
-                  </div>
-                }
-              >
-                <WebGLScene
-                  settings={settings}
-                  progress={playback.progress}
-                  playing={playback.playing}
-                />
-              </Suspense>
-            ) : (
-              <PreviewCanvas
+            <Suspense
+              fallback={
+                <div className="stage-grid flex min-h-0 flex-1 items-center justify-center text-sm text-zinc-500">
+                  Loading 3D renderer…
+                </div>
+              }
+            >
+              <WebGLScene
                 settings={settings}
-                progress={playback.progress}
-                playing={playback.playing}
+                progress={sceneProgress}
+                playing={exportProgress == null && playback.playing}
+                registerExportRender={registerExportRender}
               />
-            )}
-            <BrandOverlay settings={settings} progress={playback.progress} />
+            </Suspense>
+            <BrandOverlay settings={settings} progress={sceneProgress} />
           </div>
           <PlaybackBar
             settings={settings}
@@ -183,7 +211,8 @@ export default function App() {
         <ExportModal
           settings={settings}
           duration={effectiveDuration}
-          onClose={() => setExporting(false)}
+          renderAt={renderAt}
+          onClose={endExport}
         />
       )}
     </div>

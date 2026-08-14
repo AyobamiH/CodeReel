@@ -1,59 +1,77 @@
-import { useEffect, useState } from 'react'
-import { CheckCircle2, Download, FileVideo, Info, X } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { AlertTriangle, CheckCircle2, Download, FileVideo, X } from 'lucide-react'
 import type { Settings } from '../lib/types'
-import { ASPECTS } from '../lib/types'
+import { exportGif, type GifResult } from '../lib/export/gif'
 
-const FPS = 30
+// GIFs stay smooth around 15fps and it keeps frame count (and file size) sane.
+const FPS = 15
 
-type Phase = 'render' | 'encode' | 'mux' | 'done'
-
-const PHASE_LABEL: Record<Phase, string> = {
-  render: 'Rasterizing frames',
-  encode: 'Encoding',
-  mux: 'Muxing container',
-  done: 'Export complete',
-}
+type Status = 'rendering' | 'done' | 'error'
 
 export function ExportModal({
   settings,
   duration,
+  renderAt,
   onClose,
 }: {
   settings: Settings
   duration: number
+  /** drive the WebGL scene to an exact progress and resolve once it has rendered */
+  renderAt: (progress: number) => Promise<void>
   onClose: () => void
 }) {
-  const [pct, setPct] = useState(0)
-  const [note, setNote] = useState(false)
+  const [status, setStatus] = useState<Status>('rendering')
+  const [frame, setFrame] = useState(0)
+  const [result, setResult] = useState<GifResult | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
-  const totalFrames = Math.round(duration * FPS)
-  const aspect = ASPECTS.find((a) => a.id === settings.aspect) ?? ASPECTS[0]
-  const ext = settings.format
-  const fileName = `codereel-${settings.aspect.replace(':', 'x')}.${ext}`
-  const sizeMB = (duration * (ext === 'gif' ? 1.9 : ext === 'webm' ? 0.5 : 0.65)).toFixed(1)
+  const totalFrames = Math.max(1, Math.round(duration * FPS))
+  const urlRef = useRef<string | null>(null)
+  const abortRef = useRef<AbortController | null>(null)
 
+  // Kick off the export once, on mount.
   useEffect(() => {
-    // time-based so browser timer throttling can't stall it:
-    // raster 0→55% (2.4s), encode 55→85% (2.4s), mux 85→100% (1s)
-    const start = performance.now()
-    const id = setInterval(() => {
-      const t = (performance.now() - start) / 1000
-      const p =
-        t < 2.4
-          ? (t / 2.4) * 55
-          : t < 4.8
-            ? 55 + ((t - 2.4) / 2.4) * 30
-            : 85 + Math.min(1, (t - 4.8) / 1) * 15
-      const wobble = p < 98 ? Math.sin(t * 7) * 0.8 : 0
-      setPct(Math.min(100, Math.max(0, p + wobble)))
-      if (p >= 100) clearInterval(id)
-    }, 80)
-    return () => clearInterval(id)
-  }, [])
+    const ctrl = new AbortController()
+    abortRef.current = ctrl
+    let cancelled = false
 
-  const phase: Phase = pct >= 100 ? 'done' : pct < 55 ? 'render' : pct < 85 ? 'encode' : 'mux'
-  const done = phase === 'done'
-  const frame = Math.min(totalFrames, Math.round((pct / 55) * totalFrames))
+    const run = async () => {
+      const canvas = document.querySelector('main canvas') as HTMLCanvasElement | null
+      if (!canvas) {
+        setError('Could not find the WebGL canvas to capture.')
+        setStatus('error')
+        return
+      }
+      try {
+        const res = await exportGif({
+          settings,
+          canvas,
+          duration,
+          fps: FPS,
+          renderAt,
+          signal: ctrl.signal,
+          onProgress: ({ done }) => {
+            if (!cancelled) setFrame(done)
+          },
+        })
+        if (cancelled) return
+        urlRef.current = URL.createObjectURL(res.blob)
+        setResult(res)
+        setStatus('done')
+      } catch (err) {
+        if (cancelled || (err instanceof DOMException && err.name === 'AbortError')) return
+        setError(err instanceof Error ? err.message : 'Export failed.')
+        setStatus('error')
+      }
+    }
+    run()
+
+    return () => {
+      cancelled = true
+      ctrl.abort()
+      if (urlRef.current) URL.revokeObjectURL(urlRef.current)
+    }
+  }, [settings, duration, renderAt])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -62,6 +80,31 @@ export function ExportModal({
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
+
+  const pct = status === 'done' ? 100 : Math.min(99, Math.round((frame / totalFrames) * 100))
+  const done = status === 'done'
+  const errored = status === 'error'
+
+  const fileName = `codereel-${settings.aspect.replace(':', 'x')}.gif`
+  const resLabel = result ? `${result.width}×${result.height}` : '—'
+  const sizeLabel = result ? `${(result.blob.size / 1_000_000).toFixed(1)} MB` : '—'
+
+  const download = () => {
+    if (!urlRef.current) return
+    const a = document.createElement('a')
+    a.href = urlRef.current
+    a.download = fileName
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+  }
+
+  const Icon = done ? CheckCircle2 : errored ? AlertTriangle : FileVideo
+  const iconTone = done
+    ? 'bg-emerald-500/15 text-emerald-400'
+    : errored
+      ? 'bg-red-500/15 text-red-400'
+      : 'bg-accent-500/15 text-accent-400'
 
   return (
     <div
@@ -75,20 +118,20 @@ export function ExportModal({
         <div className="mb-5 flex items-start justify-between">
           <div className="flex items-center gap-3">
             <div
-              className={`flex h-10 w-10 items-center justify-center rounded-xl transition-colors ${
-                done ? 'bg-emerald-500/15 text-emerald-400' : 'bg-accent-500/15 text-accent-400'
-              }`}
+              className={`flex h-10 w-10 items-center justify-center rounded-xl transition-colors ${iconTone}`}
             >
-              {done ? <CheckCircle2 className="h-5 w-5" /> : <FileVideo className="h-5 w-5" />}
+              <Icon className="h-5 w-5" />
             </div>
             <div>
               <h2 className="text-[15px] font-semibold text-white">
-                {done ? 'Export complete' : `Exporting ${ext.toUpperCase()}`}
+                {done ? 'Export complete' : errored ? 'Export failed' : 'Exporting GIF'}
               </h2>
               <p className="text-[12px] text-zinc-500">
                 {done
                   ? fileName
-                  : `${PHASE_LABEL[phase]}${phase === 'encode' ? ` ${ext.toUpperCase()}` : ''}…`}
+                  : errored
+                    ? (error ?? 'Something went wrong')
+                    : 'Rendering frames…'}
               </p>
             </div>
           </div>
@@ -104,28 +147,30 @@ export function ExportModal({
         {/* progress */}
         <div className="mb-2 h-2 overflow-hidden rounded-full bg-white/8">
           <div
-            className={`h-full rounded-full transition-[width] duration-100 ${done ? 'bg-emerald-500' : 'shimmer'}`}
-            style={{ width: `${pct}%` }}
+            className={`h-full rounded-full transition-[width] duration-100 ${
+              errored ? 'bg-red-500' : done ? 'bg-emerald-500' : 'shimmer'
+            }`}
+            style={{ width: `${errored ? 100 : pct}%` }}
           />
         </div>
         <div className="mb-5 flex justify-between font-mono text-[11px] text-zinc-500 tabular-nums">
           <span>
             {done
-              ? `${totalFrames} frames rendered`
-              : phase === 'render'
-                ? `frame ${frame} / ${totalFrames}`
-                : `${totalFrames} frames · ${FPS} fps`}
+              ? `${totalFrames} frames · ${FPS} fps`
+              : errored
+                ? 'aborted'
+                : `frame ${frame} / ${totalFrames}`}
           </span>
-          <span>{Math.floor(pct)}%</span>
+          <span>{errored ? '' : `${pct}%`}</span>
         </div>
 
         {/* stats */}
         <div className="mb-5 grid grid-cols-4 gap-2">
           {[
-            ['Resolution', aspect.res],
+            ['Resolution', resLabel],
             ['Frame rate', `${FPS} fps`],
             ['Duration', `${duration.toFixed(1)}s`],
-            ['Est. size', `${sizeMB} MB`],
+            ['Size', sizeLabel],
           ].map(([k, v]) => (
             <div
               key={k}
@@ -141,7 +186,7 @@ export function ExportModal({
           <button
             type="button"
             disabled={!done}
-            onClick={() => setNote(true)}
+            onClick={download}
             className={`flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl py-2.5 text-[13px] font-semibold transition-all duration-150 ${
               done
                 ? 'bg-gradient-to-br from-accent-500 to-fuchsia-500 text-white shadow-lg shadow-accent-500/25 hover:brightness-110 active:scale-[0.98]'
@@ -149,23 +194,16 @@ export function ExportModal({
             }`}
           >
             <Download className="h-4 w-4" />
-            Download {ext.toUpperCase()}
+            Download GIF
           </button>
           <button
             type="button"
             onClick={onClose}
             className="cursor-pointer rounded-xl px-4 py-2.5 text-[13px] font-medium text-zinc-400 transition-colors hover:bg-white/5 hover:text-white"
           >
-            {done ? 'Close' : 'Cancel'}
+            {done || errored ? 'Close' : 'Cancel'}
           </button>
         </div>
-
-        {note && (
-          <div className="fade-in mt-4 flex items-center gap-2 rounded-lg bg-amber-400/8 px-3 py-2 text-[12px] text-amber-300/90 ring-1 ring-amber-400/15">
-            <Info className="h-3.5 w-3.5 shrink-0" />
-            Prototype build — the encoder isn't wired up yet.
-          </div>
-        )}
       </div>
     </div>
   )

@@ -29,8 +29,8 @@ interface AnnoItem {
 }
 
 /**
- * Tier 3 — a real WebGL renderer (React Three Fiber). Opt-in via `settings.renderer`.
- * It is a **pure function of `progress`** exactly like PreviewCanvas: the camera,
+ * The renderer — a real WebGL scene (React Three Fiber), and the only renderer.
+ * It is a **pure function of `progress`**: the camera,
  * shader uniforms and card transitions are all derived from `progress → phase/localT`
  * (via the shared timeline), never from `useFrame`'s wall-clock. The canvas runs in
  * `frameloop="demand"` and we `invalidate()` whenever `progress` changes — so a future
@@ -1085,13 +1085,32 @@ function Rig({
   )
 }
 
+/**
+ * Bridges R3F's imperative `advance()` out to the app so the GIF exporter can
+ * draw a single composed frame (through the EffectComposer, so bloom is included)
+ * synchronously — no requestAnimationFrame, which is throttled to ~0 when the tab
+ * is backgrounded. The scene graph is already up to date via the Rig's
+ * useLayoutEffect by the time advance() runs.
+ */
+function ExportBridge({ register }: { register: (fn: ((t: number) => void) | null) => void }) {
+  const advance = useThree((s) => s.advance)
+  useEffect(() => {
+    register((t) => advance(t, true))
+    return () => register(null)
+  }, [advance, register])
+  return null
+}
+
 export function WebGLScene({
   settings,
   progress,
+  registerExportRender,
 }: {
   settings: Settings
   progress: number
   playing: boolean
+  /** lets the exporter register R3F's advance() to draw frames on demand (no rAF) */
+  registerExportRender?: (fn: ((t: number) => void) | null) => void
 }) {
   const theme = THEMES.find((t) => t.id === settings.themeId) ?? THEMES[0]
   const font = FONTS.find((f) => f.id === settings.fontId) ?? FONTS[0]
@@ -1294,7 +1313,14 @@ export function WebGLScene({
         frameloop="demand"
         shadows
         dpr={[1, 2]}
-        gl={{ alpha: true, antialias: true, premultipliedAlpha: false }}
+        // preserveDrawingBuffer keeps the frame readable after render so the GIF
+        // exporter can drawImage() the canvas on a later tick (see lib/export/gif.ts).
+        gl={{
+          alpha: true,
+          antialias: true,
+          premultipliedAlpha: false,
+          preserveDrawingBuffer: true,
+        }}
         camera={{ fov: 32, position: [0, 0, 6], near: 0.1, far: 100 }}
       >
         <Rig
@@ -1317,6 +1343,7 @@ export function WebGLScene({
             mipmapBlur
           />
         </EffectComposer>
+        {registerExportRender && <ExportBridge register={registerExportRender} />}
       </Canvas>
     </div>
   )
