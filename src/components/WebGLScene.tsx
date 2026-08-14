@@ -4,7 +4,8 @@ import { EffectComposer, Bloom } from '@react-three/postprocessing'
 import { Environment, Lightformer, MeshReflectorMaterial, RoundedBox } from '@react-three/drei'
 import * as THREE from 'three'
 import type { Settings } from '../lib/types'
-import { CONSOLE_STATUSES, FONTS } from '../lib/types'
+import { ASPECTS, CONSOLE_STATUSES, FONTS } from '../lib/types'
+import { useElementSize } from '../lib/usePlayback'
 import { BACKGROUNDS, THEMES } from '../lib/themes'
 import { lineLength, tokenizeLines } from '../lib/highlight'
 import { buildTimeline, locate, loopFade, type Phase } from '../lib/timeline'
@@ -1119,6 +1120,25 @@ export function WebGLScene({
     (BACKGROUNDS.find((b) => b.id === settings.backgroundId) ?? BACKGROUNDS[0]).css
   const isTransparent = background === 'transparent'
 
+  // Aspect lock: the canvas is a frame of the selected format (16:9 / 1:1 / 9:16),
+  // centred in the stage and letterboxed by the background. This is what the
+  // exporter captures, so the GIF's shape always matches the chosen format.
+  const ratio = (ASPECTS.find((a) => a.id === settings.aspect) ?? ASPECTS[0]).ratio
+  const [stageRef, stageSize] = useElementSize<HTMLDivElement>()
+  const frame = useMemo(() => {
+    const pad = 24
+    const availW = Math.max(0, stageSize.w - pad * 2)
+    const availH = Math.max(0, stageSize.h - pad * 2)
+    if (availW === 0 || availH === 0) return { w: 0, h: 0 }
+    let w = availW
+    let h = availW / ratio
+    if (h > availH) {
+      h = availH
+      w = availH * ratio
+    }
+    return { w: Math.round(w), h: Math.round(h) }
+  }, [stageSize.w, stageSize.h, ratio])
+
   // seamless-loop wrap: fade the whole 3D scene to reveal the stage background at both ends of the
   // take, so it powers on at the start and dissolves at the end (last frame == first). Fading the
   // canvas hides every channel's seam discontinuity at once — camera, backdrop, particles.
@@ -1303,48 +1323,57 @@ export function WebGLScene({
 
   return (
     <div
+      ref={stageRef}
       className={`stage-grid relative flex min-h-0 flex-1 items-center justify-center overflow-hidden ${
         isTransparent ? 'checkerboard' : ''
       }`}
       style={{ background: isTransparent ? undefined : background }}
     >
-      <Canvas
-        style={{ position: 'absolute', inset: 0, opacity: loopEnv }}
-        frameloop="demand"
-        shadows
-        dpr={[1, 2]}
-        // preserveDrawingBuffer keeps the frame readable after render so the GIF
-        // exporter can drawImage() the canvas on a later tick (see lib/export/gif.ts).
-        gl={{
-          alpha: true,
-          antialias: true,
-          premultipliedAlpha: false,
-          preserveDrawingBuffer: true,
-        }}
-        camera={{ fov: 32, position: [0, 0, 6], near: 0.1, far: 100 }}
-      >
-        <Rig
-          settings={settings}
-          progress={progress}
-          planeW={planeW}
-          planeH={planeH}
-          textures={textures}
-          glow={glow}
-          consoleTex={consoleTex}
-          redrawConsole={redrawConsole}
-          spotBands={spotBands}
-          annoLayout={annoLayout}
-        />
-        <EffectComposer>
-          <Bloom
-            intensity={bloomIntensity}
-            luminanceThreshold={0.55}
-            luminanceSmoothing={0.3}
-            mipmapBlur
-          />
-        </EffectComposer>
-        {registerExportRender && <ExportBridge register={registerExportRender} />}
-      </Canvas>
+      <div className="relative" style={{ width: frame.w, height: frame.h }}>
+        {frame.w > 0 && (
+          <Canvas
+            // Remount on aspect change: R3F's react-use-measure can miss a parent
+            // resize under React 19, leaving the drawing buffer at the old aspect.
+            // Keying by aspect forces a fresh mount that measures the new frame.
+            key={settings.aspect}
+            style={{ position: 'absolute', inset: 0, opacity: loopEnv }}
+            frameloop="demand"
+            shadows
+            dpr={[1, 2]}
+            // preserveDrawingBuffer keeps the frame readable after render so the GIF
+            // exporter can drawImage() the canvas on a later tick (see lib/export/gif.ts).
+            gl={{
+              alpha: true,
+              antialias: true,
+              premultipliedAlpha: false,
+              preserveDrawingBuffer: true,
+            }}
+            camera={{ fov: 32, position: [0, 0, 6], near: 0.1, far: 100 }}
+          >
+            <Rig
+              settings={settings}
+              progress={progress}
+              planeW={planeW}
+              planeH={planeH}
+              textures={textures}
+              glow={glow}
+              consoleTex={consoleTex}
+              redrawConsole={redrawConsole}
+              spotBands={spotBands}
+              annoLayout={annoLayout}
+            />
+            <EffectComposer>
+              <Bloom
+                intensity={bloomIntensity}
+                luminanceThreshold={0.55}
+                luminanceSmoothing={0.3}
+                mipmapBlur
+              />
+            </EffectComposer>
+            {registerExportRender && <ExportBridge register={registerExportRender} />}
+          </Canvas>
+        )}
+      </div>
     </div>
   )
 }
