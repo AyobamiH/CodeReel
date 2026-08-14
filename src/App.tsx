@@ -147,6 +147,12 @@ export default function App() {
     [settings.steps.length, timeline, seek, restart, playTo],
   )
 
+  // read live progress from a ref so the keydown listener below stays mounted
+  // across frames — depending on `playback.progress` would re-subscribe it ~60×/s,
+  // and a keypress landing during that momentary detach would be dropped.
+  const progressRef = useRef(playback.progress)
+  progressRef.current = playback.progress
+
   // keyboard: space = play/pause, R = restart, ←/→ = step through (steps mode)
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -160,13 +166,13 @@ export default function App() {
       } else if (settings.mode === 'steps' && (e.key === 'ArrowRight' || e.key === 'ArrowLeft')) {
         e.preventDefault()
         pause()
-        const here = currentStep(timeline, playback.progress)
+        const here = currentStep(timeline, progressRef.current)
         goToStep(here + (e.key === 'ArrowRight' ? 1 : -1))
       }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [toggle, restart, pause, goToStep, timeline, playback.progress, settings.mode, exporting])
+  }, [toggle, restart, pause, goToStep, timeline, settings.mode, exporting])
 
   return (
     <div className="flex h-full flex-col bg-ink-950 text-zinc-200">
