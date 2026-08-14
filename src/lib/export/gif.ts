@@ -32,8 +32,26 @@ function yieldToEventLoop(): Promise<void> {
   })
 }
 
-/** Cap the GIF's longest edge — keeps palette work + file size sane. */
-const MAX_EDGE = 720
+/** Default cap for the GIF's longest edge when the caller doesn't specify one. */
+const DEFAULT_MAX_EDGE = 1080
+
+/**
+ * Compute the exported frame size for a canvas + longest-edge cap, never
+ * upscaling past the canvas's own backing store. Exported so the modal can show
+ * the resulting dimensions before rendering.
+ */
+export function exportDimensions(
+  canvas: { width: number; height: number },
+  maxEdge: number,
+): { width: number; height: number } {
+  const srcW = canvas.width || 1280
+  const srcH = canvas.height || 720
+  const s = Math.min(1, maxEdge / Math.max(srcW, srcH))
+  return {
+    width: Math.max(2, Math.round(srcW * s)),
+    height: Math.max(2, Math.round(srcH * s)),
+  }
+}
 
 export interface GifProgress {
   /** frames encoded so far */
@@ -48,8 +66,10 @@ export interface GifExportOptions {
   canvas: HTMLCanvasElement
   /** total timeline length in seconds */
   duration: number
-  /** frames per second (GIFs stay smooth ~15) */
+  /** frames per second */
   fps: number
+  /** cap for the longest output edge (px); never upscales past the canvas */
+  maxEdge?: number
   /**
    * Drive the scene to `progress` (0..1) and resolve once the WebGL canvas has
    * actually rendered that frame. Owned by the app (React state → R3F render).
@@ -217,11 +237,7 @@ export async function exportGif(opts: GifExportOptions): Promise<GifResult> {
   const delay = Math.round(1000 / fps)
 
   // target size: the canvas's own aspect (matches the preview), longest edge capped
-  const srcW = canvas.width || canvas.clientWidth || 1280
-  const srcH = canvas.height || canvas.clientHeight || 720
-  const s = Math.min(1, MAX_EDGE / Math.max(srcW, srcH))
-  const w = Math.max(2, Math.round(srcW * s))
-  const h = Math.max(2, Math.round(srcH * s))
+  const { width: w, height: h } = exportDimensions(canvas, opts.maxEdge ?? DEFAULT_MAX_EDGE)
 
   const scratch = document.createElement('canvas')
   scratch.width = w

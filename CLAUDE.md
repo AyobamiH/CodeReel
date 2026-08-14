@@ -2,7 +2,10 @@
 
 Turns code into an animated video. React + TypeScript + Vite + Tailwind v4.
 **GIF export is real** — `ExportModal.tsx` drives `lib/export/gif.ts`, which steps
-`progress` 0→1, draws each WebGL frame on demand, and encodes with `gifenc`.
+`progress` 0→1, draws each WebGL frame on demand, and encodes with `gifenc`. The
+modal has a config step: the user picks **resolution** (longest edge, up to the
+canvas's native size — never upscaled) and **frame rate**, with a live size
+estimate.
 (MP4/WebM are not wired up yet; Remotion/headless Chromium stays a future option
 for those.)
 
