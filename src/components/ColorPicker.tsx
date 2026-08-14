@@ -22,7 +22,9 @@ function rgbToHex(r: number, g: number, b: number) {
 }
 
 function rgbToHsv(r: number, g: number, b: number) {
-  r /= 255; g /= 255; b /= 255
+  r /= 255
+  g /= 255
+  b /= 255
   const max = Math.max(r, g, b)
   const min = Math.min(r, g, b)
   const d = max - min
@@ -43,7 +45,9 @@ function hsvToRgb(h: number, s: number, v: number): [number, number, number] {
   const c = v * s
   const x = c * (1 - Math.abs(((h / 60) % 2) - 1))
   const m = v - c
-  let r = 0, g = 0, b = 0
+  let r = 0,
+    g = 0,
+    b = 0
   if (h < 60) [r, g, b] = [c, x, 0]
   else if (h < 120) [r, g, b] = [x, c, 0]
   else if (h < 180) [r, g, b] = [0, c, x]
@@ -188,6 +192,21 @@ export function ColorPicker({
 
   return (
     <>
+      <input
+        type="color"
+        value={value || '#4f46e5'}
+        onChange={(e) => onChange(e.target.value)}
+        aria-label={title ?? 'Color'}
+        style={{
+          position: 'fixed',
+          left: 0,
+          top: 0,
+          width: 1,
+          height: 1,
+          opacity: 0,
+        }}
+      />
+
       <button
         ref={triggerRef}
         type="button"
@@ -233,7 +252,10 @@ export function ColorPicker({
             </div>
 
             <div className="flex items-center gap-2">
-              <div className="h-8 w-8 shrink-0 rounded-md ring-1 ring-white/10" style={{ background: value }} />
+              <div
+                className="h-8 w-8 shrink-0 rounded-md ring-1 ring-white/10"
+                style={{ background: value }}
+              />
               {(['R', 'G', 'B'] as const).map((label, i) => (
                 <label key={label} className="flex flex-1 flex-col items-center gap-0.5">
                   <input
