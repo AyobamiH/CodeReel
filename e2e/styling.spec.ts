@@ -25,11 +25,12 @@ test.describe('Style panel', () => {
     )
   })
 
-  test('changing the theme recolours the rendered preview', async ({ page }) => {
-    await pausePreview(page)
-    await expectPreviewChanges(page, () =>
-      page.getByRole('button', { name: 'GitHub Dark' }).click(),
-    )
+  test('changing the theme recolours the rendered code', async ({ page }) => {
+    await expect(codeBox(page)).toHaveCSS('color', 'rgb(248, 248, 242)') // Dracula fg
+    await page.getByRole('button', { name: 'GitHub Dark' }).click()
+    await expect(codeBox(page)).toHaveCSS('color', 'rgb(230, 237, 243)') // GitHub Dark fg
+    await page.getByRole('button', { name: 'Catppuccin Mocha' }).click()
+    await expect(codeBox(page)).toHaveCSS('color', 'rgb(205, 214, 244)') // Catppuccin Mocha text
   })
 
   test('the font family is selectable', async ({ page }) => {

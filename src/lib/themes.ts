@@ -151,6 +151,30 @@ export const THEMES: CodeTheme[] = [
       attr: '#a6e22e',
     },
   },
+  {
+    id: 'catppuccin-mocha',
+    name: 'Catppuccin Mocha',
+    bg: '#1e1e2e',
+    fg: '#cdd6f4',
+    chromeBg: '#181825',
+    lineNumber: '#45475a',
+    caret: '#f5e0dc',
+    swatch: ['#1e1e2e', '#cba6f7', '#89b4fa'],
+    colors: {
+      keyword: '#cba6f7',
+      string: '#a6e3a1',
+      comment: '#9399b2',
+      number: '#fab387',
+      function: '#89b4fa',
+      type: '#f9e2af',
+      constant: '#fab387',
+      property: '#89b4fa',
+      operator: '#89dceb',
+      punct: '#9399b2',
+      tag: '#89b4fa',
+      attr: '#f9e2af',
+    },
+  },
 ]
 
 export interface Background {
