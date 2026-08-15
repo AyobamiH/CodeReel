@@ -18,7 +18,7 @@ import { CAMERA_MOVES, FONTS, SCENE_FX } from '../lib/types'
 import { BACKGROUNDS, THEMES } from '../lib/themes'
 import { PRESETS, randomVibe } from '../lib/presets'
 import { Row, Section, Select, Slider, Toggle } from './ui'
-import { ColorPicker } from './ColorPicker'
+import { ColorPicker } from './ColorPicker.tsx'
 
 /** 3×3 pad of tilt directions; (0,0) is face-on. */
 const TILT_PAD: { x: number; y: number; Icon: LucideIcon; title: string }[] = [
