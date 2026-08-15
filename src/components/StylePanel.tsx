@@ -18,6 +18,7 @@ import { CAMERA_MOVES, FONTS, SCENE_FX } from '../lib/types'
 import { BACKGROUNDS, THEMES } from '../lib/themes'
 import { PRESETS, randomVibe } from '../lib/presets'
 import { Row, Section, Select, Slider, Toggle } from './ui'
+import { ColorPicker } from './ColorPicker.tsx'
 
 /** 3×3 pad of tilt directions; (0,0) is face-on. */
 const TILT_PAD: { x: number; y: number; Icon: LucideIcon; title: string }[] = [
@@ -127,27 +128,26 @@ export function StylePanel({
               />
             )
           })}
-          <label
+          <ColorPicker
             title="Custom color"
-            className={`relative flex h-9 cursor-pointer items-center justify-center overflow-hidden rounded-lg text-[10px] font-semibold text-white/80 transition-all duration-150 ${
+            value={settings.customBg ?? '#4f46e5'}
+            onChange={(hex: string) => update({ customBg: hex })}
+            className={`relative flex h-9 w-full cursor-pointer items-center justify-center overflow-hidden rounded-lg text-[10px] font-semibold text-white/80 transition-all duration-150 ${
               settings.customBg !== null
                 ? 'ring-2 ring-accent-400 ring-offset-2 ring-offset-ink-900'
                 : 'ring-1 ring-white/10 hover:scale-105 hover:ring-white/30'
             }`}
-            style={{
-              background:
-                settings.customBg ??
-                'conic-gradient(from 180deg, #f87171, #fbbf24, #34d399, #60a5fa, #c084fc, #f87171)',
-            }}
           >
-            <input
-              type="color"
-              value={settings.customBg ?? '#4f46e5'}
-              onChange={(e) => update({ customBg: e.target.value })}
-              className="absolute inset-0 cursor-pointer opacity-0"
+            <span
+              className="absolute inset-0"
+              style={{
+                background:
+                  settings.customBg ??
+                  'conic-gradient(from 180deg, #f87171, #fbbf24, #34d399, #60a5fa, #c084fc, #f87171)',
+              }}
             />
-            {settings.customBg === null && <span className="drop-shadow">＋</span>}
-          </label>
+            {settings.customBg === null && <span className="drop-shadow relative">＋</span>}
+          </ColorPicker>
         </div>
       </Section>
 
