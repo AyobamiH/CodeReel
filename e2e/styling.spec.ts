@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { expectNoPageErrors, openApp } from './app.js'
+import { expectNoPageErrors, expectPreviewChanges, openApp, pausePreview } from './app.js'
 
 test.describe('Style panel', () => {
   test.beforeEach(async ({ page }) => {
@@ -10,43 +10,42 @@ test.describe('Style panel', () => {
     await expectNoPageErrors(page)
   })
 
-  // the rendered code container carries the theme fg colour + font family inline.
-  // .first() skips the aria-hidden floor-reflection duplicate of the window.
-  const codeBox = (page: import('@playwright/test').Page) =>
-    page.locator('main div[style*="perspective: 1400px"]').first()
-
-  test('window title renders in the preview and hides with chrome', async ({ page }) => {
-    const main = page.getByRole('main')
-    // .first() skips the aria-hidden floor-reflection duplicate of the window
-    const title = main.getByText('hello.ts', { exact: true }).first()
-    await page.getByPlaceholder('Window title…').fill('hello.ts')
-    await expect(title).toBeVisible()
-
-    await page.locator('label', { hasText: 'macOS chrome' }).getByRole('switch').click()
-    await expect(title).toBeHidden()
+  test('window title + chrome toggle change the rendered preview', async ({ page }) => {
+    await pausePreview(page)
+    await expectPreviewChanges(page, () => page.getByPlaceholder('Window title…').fill('hello.ts'))
+    await expectPreviewChanges(page, () =>
+      page.locator('label', { hasText: 'macOS chrome' }).getByRole('switch').click(),
+    )
   })
 
-  test('line numbers toggle on and off in the preview', async ({ page }) => {
-    const gutter = page.getByRole('main').locator('span.select-none.tabular-nums')
-    await expect(gutter.first()).toBeVisible()
-
-    await page.locator('label', { hasText: 'Line numbers' }).getByRole('switch').click()
-    await expect(gutter).toHaveCount(0)
+  test('line numbers toggle changes the rendered preview', async ({ page }) => {
+    await pausePreview(page)
+    await expectPreviewChanges(page, () =>
+      page.locator('label', { hasText: 'Line numbers' }).getByRole('switch').click(),
+    )
   })
 
-  test('changing the theme recolours the rendered code', async ({ page }) => {
-    await expect(codeBox(page)).toHaveCSS('color', 'rgb(248, 248, 242)') // Dracula fg
-    await page.getByRole('button', { name: 'GitHub Dark' }).click()
-    await expect(codeBox(page)).toHaveCSS('color', 'rgb(230, 237, 243)') // GitHub Dark fg
+  test('changing the theme recolours the rendered preview', async ({ page }) => {
+    // The preview draws to a WebGL <canvas>, so a theme swap shows up as pixels,
+    // not DOM colour — compare frame signatures. Covers the newest theme too.
+    await pausePreview(page)
+    await expectPreviewChanges(page, () =>
+      page.getByRole('button', { name: 'GitHub Dark' }).click(),
+    )
+    await expectPreviewChanges(page, () =>
+      page.getByRole('button', { name: 'Catppuccin Mocha' }).click(),
+    )
+    await expectPreviewChanges(page, () => page.getByRole('button', { name: 'Vaporwave' }).click())
   })
 
-  test('changing the font family updates the rendered code', async ({ page }) => {
-    await expect(codeBox(page)).toHaveCSS('font-family', /JetBrains Mono/)
+  test('the font family is selectable', async ({ page }) => {
+    // the font feeds the WebGL card texture; the selected value is the stable
+    // source of truth (whether a webfont renders differently is font-load dependent)
     const fontSelect = page.locator('select', {
       has: page.locator('option', { hasText: 'Fira Code' }),
     })
     await fontSelect.selectOption({ label: 'Fira Code' })
-    await expect(codeBox(page)).toHaveCSS('font-family', /Fira Code/)
+    await expect(fontSelect).toHaveValue('fira')
   })
 
   test('selecting a background marks it active', async ({ page }) => {

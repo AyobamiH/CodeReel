@@ -17,10 +17,10 @@ test.describe('CodeReel critical journeys', () => {
 
     await editor.fill(source)
 
+    // the code feeds the WebGL preview (rasterised to a canvas, so not DOM-visible);
+    // the editor value + the parsed line/char count are the observable source of truth
     await expect(editor).toHaveValue(source)
     await expect(page.getByText(`2 lines · ${source.length} chars`, { exact: true })).toBeVisible()
-    await expect(page.getByRole('main')).toContainText('const answer = 42')
-    await expect(page.getByRole('main')).toContainText('console.log(answer)')
   })
 
   test('builds and manages a multi-step sequence', async ({ page }) => {
@@ -40,26 +40,40 @@ test.describe('CodeReel critical journeys', () => {
   })
 
   test('completes the configured export flow', async ({ page }) => {
+    test.slow() // the real GIF encode is CPU-bound; give it room on a loaded runner
     await page.getByRole('button', { name: '1:1', exact: true }).click()
-    await page.getByRole('button', { name: 'GIF', exact: true }).click()
-    await page.getByRole('button', { name: 'Export video' }).click()
 
-    await expect(page.getByRole('heading', { name: 'Exporting GIF' })).toBeVisible()
-    await expect(page.getByText('1080×1080', { exact: true })).toBeVisible()
+    // keep the render quick for CI: shortest take, no end-hold
+    await page
+      .locator('select', { has: page.locator('option', { hasText: 'Off' }) })
+      .selectOption({ label: 'Off' })
+    await page
+      .locator('select', { has: page.locator('option', { hasText: '15s' }) })
+      .selectOption({ label: '3s' })
+
+    await page.getByRole('button', { name: 'Export GIF' }).click()
+    await expect(page.getByRole('heading', { name: 'Export GIF' })).toBeVisible()
+
+    // fewest frames + smallest resolution so the encode stays quick under CI load
+    await page.getByRole('button', { name: '12', exact: true }).click()
+    await page
+      .locator('span', { hasText: 'Resolution' })
+      .locator('xpath=..')
+      .getByRole('button')
+      .first()
+      .click()
 
     const download = page.getByRole('button', { name: 'Download GIF' })
+    await page.getByRole('button', { name: 'Export', exact: true }).click()
     await expect(download).toBeDisabled()
 
+    // the encode is CPU-bound and shares the runner with the parallel suite, so
+    // allow generous headroom (test.slow() gives the test itself a 90s budget)
     await expect(page.getByRole('heading', { name: 'Export complete' })).toBeVisible({
-      timeout: 10_000,
+      timeout: 60_000,
     })
     await expect(page.getByText('codereel-1x1.gif', { exact: true })).toBeVisible()
     await expect(download).toBeEnabled()
-
-    await download.click()
-    await expect(
-      page.getByText("Prototype build — the encoder isn't wired up yet.", { exact: true }),
-    ).toBeVisible()
 
     await page.getByRole('button', { name: 'Close' }).click()
     await expect(page.getByRole('heading', { name: 'Export complete' })).toBeHidden()

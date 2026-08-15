@@ -43,7 +43,8 @@ Existing effects (tilt, flip reveal, `flip3d`, diff, typewriter) all follow this
 | `src/components/StylePanel.tsx`    | Right-hand controls (theme, background, window, 3D pad, typography).                                          |
 | `src/components/PlaybackBar.tsx`   | Transport + Motion selector.                                                                                  |
 | `src/components/CodePanel.tsx`     | Code input, steps, transition selectors.                                                                      |
-| `src/components/ExportModal.tsx`   | **Currently a mock** — progress bar only, "encoder isn't wired up yet."                                       |
+| `src/components/ExportModal.tsx`   | **Real GIF export** — drives `lib/export/gif.ts` (frame-steps `progress`, encodes with `gifenc`).             |
+| `src/lib/export/gif.ts`            | GIF exporter: composites background + WebGL canvas + brand overlay per frame, encodes via `gifenc`.           |
 
 ---
 

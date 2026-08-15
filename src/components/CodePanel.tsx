@@ -7,13 +7,28 @@ import {
   Copy,
   Layers,
   ListVideo,
+  MessageSquarePlus,
   Plus,
   Terminal,
   Trash2,
   Upload,
 } from 'lucide-react'
-import type { InputMode, Language, Settings, Step, TransitionStyle } from '../lib/types'
-import { CONSOLE_STATUSES, LANGUAGES, TRANSITIONS } from '../lib/types'
+import type {
+  Annotation,
+  AnnotationStyle,
+  InputMode,
+  Language,
+  Settings,
+  Step,
+  TransitionStyle,
+} from '../lib/types'
+import {
+  ANNOTATION_COLORS,
+  ANNOTATION_STYLES,
+  CONSOLE_STATUSES,
+  LANGUAGES,
+  TRANSITIONS,
+} from '../lib/types'
 import { SOURCE_FILE_ACCEPT } from '../lib/sourceFile'
 import { useSourceFileUpload } from '../lib/useSourceFileUpload'
 import { SAMPLES, STEP_SAMPLE } from '../lib/samples'
@@ -29,7 +44,13 @@ function newId(): string {
 }
 
 export function makeDefaultSteps(): Step[] {
-  return STEP_SAMPLE.map((s) => ({ id: newId(), code: s.code, title: s.title, transition: null }))
+  return STEP_SAMPLE.map((s) => ({
+    id: newId(),
+    code: s.code,
+    title: s.title,
+    transition: null,
+    annotations: [],
+  }))
 }
 
 export function CodePanel({
@@ -80,7 +101,13 @@ export function CodePanel({
     // seed the new step with a copy of the current one — the natural "duplicate then edit" gesture
     const seed = steps[active] ?? { code: '', title: '' }
     const next = [...steps]
-    next.splice(active + 1, 0, { id: newId(), code: seed.code, title: '', transition: null })
+    next.splice(active + 1, 0, {
+      id: newId(),
+      code: seed.code,
+      title: '',
+      transition: null,
+      annotations: [],
+    })
     patchSteps(next)
     setActiveStep(active + 1)
   }
@@ -114,6 +141,22 @@ export function CodePanel({
   const lineCount = (settings.mode === 'steps' ? (step?.code ?? '') : settings.code).split(
     '\n',
   ).length
+
+  // line annotations — edit the active step's (steps mode) or the sequence's (sequence mode)
+  const curAnnos: Annotation[] =
+    settings.mode === 'steps' ? (step?.annotations ?? []) : settings.annotations
+  const setAnnos = (next: Annotation[]) => {
+    if (settings.mode === 'steps') updateStep(active, { annotations: next })
+    else update({ annotations: next })
+  }
+  const addAnnotation = () => {
+    // increment from the last annotation's line so each new one steps down the code
+    const lastLine = curAnnos.length ? curAnnos[curAnnos.length - 1].line : 0
+    setAnnos([...curAnnos, { id: newId(), line: Math.min(lineCount, lastLine + 1), text: '' }])
+  }
+  const patchAnnotation = (id: string, patch: Partial<Annotation>) =>
+    setAnnos(curAnnos.map((a) => (a.id === id ? { ...a, ...patch } : a)))
+  const removeAnnotation = (id: string) => setAnnos(curAnnos.filter((a) => a.id !== id))
 
   return (
     <aside className="flex w-[320px] shrink-0 flex-col border-r border-white/5 bg-ink-900">
@@ -414,6 +457,95 @@ export function CodePanel({
           />
         </div>
       )}
+
+      {/* line annotations */}
+      <div className="flex flex-col gap-2 border-t border-white/5 px-4 py-3">
+        <div className="flex items-center justify-between">
+          <span className="flex items-center gap-2 text-[11px] font-medium tracking-wider text-zinc-400 uppercase">
+            <MessageSquarePlus className="h-3.5 w-3.5" />
+            Annotations
+          </span>
+          <button
+            type="button"
+            onClick={addAnnotation}
+            title="Add a line callout"
+            className="flex cursor-pointer items-center gap-1 rounded-md border border-white/10 px-2 py-1 text-[11px] text-zinc-300 transition-colors hover:border-accent-500/50 hover:bg-accent-500/10 hover:text-white"
+          >
+            <Plus className="h-3 w-3" /> Add
+          </button>
+        </div>
+        <label className="flex items-center justify-between gap-3">
+          <span className="text-[12px] text-zinc-500">Display</span>
+          <Select
+            className="w-[130px]"
+            value={settings.annotationStyle}
+            options={ANNOTATION_STYLES.map((s) => ({ value: s.id, label: s.label }))}
+            onChange={(v) => update({ annotationStyle: v as AnnotationStyle })}
+          />
+        </label>
+        {curAnnos.length === 0 ? (
+          <p className="text-[11px] leading-snug text-zinc-600">
+            Pin a caption to a line — e.g. “← the bug”. Shows once the code has settled.
+          </p>
+        ) : (
+          curAnnos.map((a) => (
+            <div
+              key={a.id}
+              className="flex flex-col gap-1.5 rounded-md border border-white/8 bg-white/[0.02] p-2"
+            >
+              <div className="flex items-center gap-1.5">
+                <input
+                  type="number"
+                  min={1}
+                  max={lineCount}
+                  value={a.line}
+                  onChange={(e) =>
+                    patchAnnotation(a.id, { line: Math.max(1, Number(e.target.value) || 1) })
+                  }
+                  title="Line number"
+                  className="w-12 rounded-md border border-white/10 bg-ink-800 px-2 py-1 text-[12px] text-zinc-200 tabular-nums transition-colors hover:border-white/20 focus:border-accent-500 focus:outline-none"
+                />
+                <input
+                  type="text"
+                  value={a.text}
+                  onChange={(e) => patchAnnotation(a.id, { text: e.target.value })}
+                  placeholder="Caption…"
+                  className="min-w-0 flex-1 rounded-md border border-white/10 bg-ink-800 px-2 py-1 text-[12px] text-zinc-200 transition-colors placeholder:text-zinc-600 hover:border-white/20 focus:border-accent-500 focus:outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={() => removeAnnotation(a.id)}
+                  title="Remove annotation"
+                  className="flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-md text-zinc-500 transition-colors hover:bg-white/5 hover:text-red-400"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </div>
+              <div className="flex items-center gap-1.5">
+                {ANNOTATION_COLORS.map((c) => {
+                  const selected = (a.color ?? '') === c.hex
+                  return (
+                    <button
+                      key={c.id}
+                      type="button"
+                      title={c.label}
+                      onClick={() => patchAnnotation(a.id, { color: c.hex })}
+                      className={`h-4 w-4 cursor-pointer rounded-full transition-transform hover:scale-110 ${
+                        selected ? 'ring-2 ring-white ring-offset-1 ring-offset-ink-900' : ''
+                      }`}
+                      style={{
+                        background:
+                          c.hex ||
+                          'conic-gradient(from 180deg, #f87171, #fbbf24, #34d399, #60a5fa, #c084fc, #f87171)',
+                      }}
+                    />
+                  )
+                })}
+              </div>
+            </div>
+          ))
+        )}
+      </div>
 
       <div className="flex items-center justify-between border-t border-white/5 px-4 py-2 text-[11px] text-zinc-600">
         <span>

@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { flushSync } from 'react-dom'
 import type { Settings } from './lib/types'
 import { SAMPLES } from './lib/samples'
 import { usePlayback } from './lib/usePlayback'
@@ -8,12 +9,25 @@ import { CodePanel, makeDefaultSteps } from './components/CodePanel'
 import { StylePanel } from './components/StylePanel'
 import { PreviewCanvas } from './components/PreviewCanvas'
 import { PreviewPlaybackSurface } from './components/PreviewPlaybackSurface'
+import { BrandOverlay } from './components/BrandOverlay'
+// WebGL is the sole renderer; lazy-load it so the three.js/R3F bundle isn't part of
+// the initial paint (a lightweight fallback shows while it streams in).
+const WebGLScene = lazy(() =>
+  import('./components/WebGLScene').then((m) => ({ default: m.WebGLScene })),
+)
 import { PlaybackBar } from './components/PlaybackBar'
 import { ExportModal } from './components/ExportModal'
 
 const DEFAULT_SETTINGS: Settings = {
+  renderer: 'webgl',
+  sceneFx: 'none',
+  camera: 'dolly',
+  brand: '',
+  brandOn: false,
   mode: 'sequence',
   code: SAMPLES.typescript,
+  annotations: [],
+  annotationStyle: 'badge',
   console: '',
   consoleDur: 2.5,
   consoleStatus: 'success',
@@ -21,6 +35,8 @@ const DEFAULT_SETTINGS: Settings = {
   transition: 'diff',
   stepHold: 1.2,
   transitionDur: 0.8,
+  outro: 3,
+  loopWrap: false,
   language: 'typescript',
   themeId: 'dracula',
   backgroundId: 'aurora',
@@ -41,17 +57,24 @@ const DEFAULT_SETTINGS: Settings = {
   reflection: 30,
   bloom: 30,
   sweep: 30,
+  particles: 30,
+  spotlight: 45,
+  slab: 45,
+  floor: 0,
   animation: 'flip',
   duration: 5,
   speed: 1,
   loop: true,
   aspect: '16:9',
-  format: 'mp4',
+  format: 'gif',
 }
 
 export default function App() {
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS)
   const [exporting, setExporting] = useState(false)
+  // while exporting, the scene is driven frame-by-frame from this override
+  // (null = normal wall-clock playback)
+  const [exportProgress, setExportProgress] = useState<number | null>(null)
   const [activeStep, setActiveStep] = useState(0)
 
   const update = useCallback((patch: Partial<Settings>) => {
@@ -64,6 +87,38 @@ export default function App() {
 
   const playback = usePlayback(effectiveDuration, settings.speed, settings.loop)
   const { restart, toggle, seek, pause, playTo } = playback
+
+  // WebGLScene registers R3F's `advance()` here so the exporter can draw a frame
+  // on demand — no requestAnimationFrame, so it doesn't stall when the tab is
+  // backgrounded (rAF throttles to ~0 when hidden).
+  const exportRenderRef = useRef<((t: number) => void) | null>(null)
+  const exportClockRef = useRef(0)
+  const registerExportRender = useCallback((fn: ((t: number) => void) | null) => {
+    exportRenderRef.current = fn
+  }, [])
+
+  // Drive the WebGL scene to an exact progress and render that frame synchronously.
+  // flushSync commits the new progress — WebGLScene's useLayoutEffect applies every
+  // per-frame update (uniforms, camera, positions) during that commit — then
+  // advance() draws the composed frame (incl. bloom) straight to the canvas.
+  const renderAt = useCallback(async (p: number) => {
+    flushSync(() => setExportProgress(p))
+    exportClockRef.current += 16
+    exportRenderRef.current?.(exportClockRef.current)
+  }, [])
+
+  const beginExport = useCallback(() => {
+    pause()
+    setExportProgress(0)
+    setExporting(true)
+  }, [pause])
+
+  const endExport = useCallback(() => {
+    setExporting(false)
+    setExportProgress(null)
+  }, [])
+
+  const sceneProgress = exportProgress ?? playback.progress
 
   // editing content / switching language / mode restarts the take
   useEffect(() => {
@@ -94,6 +149,12 @@ export default function App() {
     [settings.steps.length, timeline, seek, restart, playTo],
   )
 
+  // read live progress from a ref so the keydown listener below stays mounted
+  // across frames — depending on `playback.progress` would re-subscribe it ~60×/s,
+  // and a keypress landing during that momentary detach would be dropped.
+  const progressRef = useRef(playback.progress)
+  progressRef.current = playback.progress
+
   // keyboard: space = play/pause, R = restart, ←/→ = step through (steps mode)
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -107,17 +168,17 @@ export default function App() {
       } else if (settings.mode === 'steps' && (e.key === 'ArrowRight' || e.key === 'ArrowLeft')) {
         e.preventDefault()
         pause()
-        const here = currentStep(timeline, playback.progress)
+        const here = currentStep(timeline, progressRef.current)
         goToStep(here + (e.key === 'ArrowRight' ? 1 : -1))
       }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [toggle, restart, pause, goToStep, timeline, playback.progress, settings.mode, exporting])
+  }, [toggle, restart, pause, goToStep, timeline, settings.mode, exporting])
 
   return (
     <div className="flex h-full flex-col bg-ink-950 text-zinc-200">
-      <TopBar settings={settings} update={update} onExport={() => setExporting(true)} />
+      <TopBar settings={settings} update={update} onExport={beginExport} />
       <div className="flex min-h-0 flex-1">
         <CodePanel
           settings={settings}
@@ -133,6 +194,23 @@ export default function App() {
               playing={playback.playing}
             />
           </PreviewPlaybackSurface>
+          <div className="relative flex min-h-0 flex-1">
+            <Suspense
+              fallback={
+                <div className="stage-grid flex min-h-0 flex-1 items-center justify-center text-sm text-zinc-500">
+                  Loading 3D renderer…
+                </div>
+              }
+            >
+              <WebGLScene
+                settings={settings}
+                progress={sceneProgress}
+                playing={exportProgress == null && playback.playing}
+                registerExportRender={registerExportRender}
+              />
+            </Suspense>
+            <BrandOverlay settings={settings} progress={sceneProgress} />
+          </div>
           <PlaybackBar
             settings={settings}
             update={update}
@@ -148,7 +226,8 @@ export default function App() {
         <ExportModal
           settings={settings}
           duration={effectiveDuration}
-          onClose={() => setExporting(false)}
+          renderAt={renderAt}
+          onClose={endExport}
         />
       )}
     </div>

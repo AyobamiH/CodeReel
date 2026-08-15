@@ -11,8 +11,8 @@ test.describe('Code input', () => {
   })
 
   test('switching language swaps in that language sample', async ({ page }) => {
-    const main = page.getByRole('main')
-    await expect(main).toContainText('Memoized fibonacci') // TypeScript sample by default
+    // TypeScript sample by default
+    await expect(page.locator('textarea').first()).toHaveValue(/Memoized fibonacci/)
 
     // the language selector is the only <select> offering "TypeScript"
     const languageSelect = page.locator('select', {
@@ -20,8 +20,8 @@ test.describe('Code input', () => {
     })
     await languageSelect.selectOption({ label: 'Python' })
 
+    await expect(languageSelect).toHaveValue('python')
     await expect(page.locator('textarea').first()).toHaveValue(/def quicksort/)
-    await expect(main).toContainText('Quicksort in three lines')
   })
 
   test('uploads a source file and detects its language', async ({ page }) => {
@@ -36,7 +36,6 @@ test.describe('Code input', () => {
       page.locator('select', { has: page.locator('option', { hasText: 'TypeScript' }) }),
     ).toHaveValue('python')
     await expect(page.locator('textarea').first()).toHaveValue(/hello from upload/)
-    await expect(page.getByRole('main')).toContainText('hello from upload')
   })
 
   test('accepts a plain-text file even when the language is unknown', async ({ page }) => {
