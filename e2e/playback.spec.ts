@@ -25,6 +25,11 @@ test.describe('Playback', () => {
     await page.keyboard.press('Space')
     await expect.poll(() => currentTime(page)).toBeGreaterThan(paused)
 
+    // R restarts from the top. Wait until playback has moved far enough from
+    // the current position that the reset is unambiguous, without assuming a
+    // fixed playback rate under a CPU-constrained test runner.
+    const beforeRestart = await currentTime(page)
+    await expect.poll(() => currentTime(page)).toBeGreaterThan(beforeRestart + 0.5)
     // R restarts from the top. Let it play clearly past the start first so the
     // reset is unambiguous (a tiny `before` leaves too narrow a window to observe
     // the drop, especially when a CPU-bound render shares the runner). Give the
