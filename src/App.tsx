@@ -1,11 +1,12 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
 import type { Settings } from './lib/types'
-import { SAMPLES } from './lib/samples'
+import { DEFAULT_SETTINGS } from './lib/defaults'
+import { loadDraft, saveDraft, store } from './lib/projects'
 import { usePlayback } from './lib/usePlayback'
 import { buildTimeline, currentStep, stepAnchor } from './lib/timeline'
 import { TopBar } from './components/TopBar'
-import { CodePanel, makeDefaultSteps } from './components/CodePanel'
+import { CodePanel } from './components/CodePanel'
 import { StylePanel } from './components/StylePanel'
 import { PreviewPlaybackSurface } from './components/PreviewPlaybackSurface'
 import { BrandOverlay } from './components/BrandOverlay'
@@ -16,60 +17,19 @@ const WebGLScene = lazy(() =>
 )
 import { PlaybackBar } from './components/PlaybackBar'
 import { ExportModal } from './components/ExportModal'
-
-const DEFAULT_SETTINGS: Settings = {
-  renderer: 'webgl',
-  sceneFx: 'none',
-  camera: 'dolly',
-  brand: '',
-  brandOn: false,
-  mode: 'sequence',
-  code: SAMPLES.typescript,
-  annotations: [],
-  annotationStyle: 'badge',
-  console: '',
-  consoleDur: 2.5,
-  consoleStatus: 'success',
-  steps: makeDefaultSteps(),
-  transition: 'diff',
-  stepHold: 1.2,
-  transitionDur: 0.8,
-  outro: 3,
-  loopWrap: false,
-  language: 'typescript',
-  themeId: 'dracula',
-  backgroundId: 'aurora',
-  customBg: null,
-  chrome: true,
-  windowTitle: 'fib.ts',
-  lineNumbers: true,
-  padding: 56,
-  fontSize: 14,
-  fontId: 'jetbrains',
-  radius: 12,
-  shadow: 55,
-  tilt: 12,
-  tiltX: -1,
-  tiltY: 1,
-  dof: 50,
-  parallax: 35,
-  reflection: 30,
-  bloom: 30,
-  sweep: 30,
-  particles: 30,
-  spotlight: 45,
-  slab: 45,
-  floor: 0,
-  animation: 'flip',
-  duration: 5,
-  speed: 1,
-  loop: true,
-  aspect: '16:9',
-  format: 'gif',
-}
+import { ProjectsModal } from './components/ProjectsModal'
 
 export default function App() {
-  const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS)
+  // Restore the last working draft (autosaved locally) so a reload continues where
+  // the user left off; fall back to a fresh project on first visit.
+  const [settings, setSettings] = useState<Settings>(
+    () => loadDraft()?.settings ?? DEFAULT_SETTINGS,
+  )
+  const [currentProjectId, setCurrentProjectId] = useState<string | null>(
+    () => loadDraft()?.currentProjectId ?? null,
+  )
+  const [currentName, setCurrentName] = useState('')
+  const [projectsOpen, setProjectsOpen] = useState(false)
   const [exporting, setExporting] = useState(false)
   // while exporting, the scene is driven frame-by-frame from this override
   // (null = normal wall-clock playback)
@@ -78,6 +38,59 @@ export default function App() {
 
   const update = useCallback((patch: Partial<Settings>) => {
     setSettings((prev) => ({ ...prev, ...patch }))
+  }, [])
+
+  // Autosave the working draft (debounced) so a reload never loses in-progress work.
+  useEffect(() => {
+    const t = setTimeout(() => saveDraft(settings, currentProjectId), 500)
+    return () => clearTimeout(t)
+  }, [settings, currentProjectId])
+
+  // Keep the displayed project name in sync with the open project (e.g. on reload,
+  // where the draft only remembers the id).
+  useEffect(() => {
+    if (!currentProjectId) {
+      setCurrentName('')
+      return
+    }
+    let cancelled = false
+    store.load(currentProjectId).then((r) => {
+      if (!cancelled) setCurrentName(r?.name ?? '')
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [currentProjectId])
+
+  const openProject = useCallback((id: string) => {
+    store.load(id).then((r) => {
+      if (!r) return
+      setSettings(r.settings)
+      setCurrentProjectId(r.id)
+      setCurrentName(r.name)
+      setActiveStep(0)
+    })
+  }, [])
+
+  const newProject = useCallback(() => {
+    setSettings(DEFAULT_SETTINGS)
+    setCurrentProjectId(null)
+    setCurrentName('')
+    setActiveStep(0)
+  }, [])
+
+  // Save button: update the open project in place, or open the library to name a new one.
+  const saveCurrent = useCallback(() => {
+    if (currentProjectId) {
+      store.save(currentName || 'Untitled project', settings, currentProjectId).catch(() => {})
+    } else {
+      setProjectsOpen(true)
+    }
+  }, [currentProjectId, currentName, settings])
+
+  const onActiveProjectChange = useCallback((id: string | null, name: string) => {
+    setCurrentProjectId(id)
+    setCurrentName(name)
   }, [])
 
   // the built timeline's total length is the playback clock in both modes
@@ -177,7 +190,14 @@ export default function App() {
 
   return (
     <div className="flex h-full flex-col bg-ink-950 text-zinc-200">
-      <TopBar settings={settings} update={update} onExport={beginExport} />
+      <TopBar
+        settings={settings}
+        update={update}
+        onExport={beginExport}
+        projectName={currentName}
+        onSave={saveCurrent}
+        onOpenProjects={() => setProjectsOpen(true)}
+      />
       <div className="flex min-h-0 flex-1">
         <CodePanel
           settings={settings}
@@ -220,6 +240,17 @@ export default function App() {
           duration={effectiveDuration}
           renderAt={renderAt}
           onClose={endExport}
+        />
+      )}
+      {projectsOpen && (
+        <ProjectsModal
+          currentProjectId={currentProjectId}
+          currentName={currentName}
+          settings={settings}
+          onOpenProject={openProject}
+          onNewProject={newProject}
+          onActiveProjectChange={onActiveProjectChange}
+          onClose={() => setProjectsOpen(false)}
         />
       )}
     </div>

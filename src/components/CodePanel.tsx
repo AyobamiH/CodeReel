@@ -31,27 +31,10 @@ import {
 } from '../lib/types'
 import { SOURCE_FILE_ACCEPT } from '../lib/sourceFile'
 import { useSourceFileUpload } from '../lib/useSourceFileUpload'
-import { SAMPLES, STEP_SAMPLE } from '../lib/samples'
+import { SAMPLES } from '../lib/samples'
+import { makeDefaultSteps, newId } from '../lib/defaults'
 import { CodeEditor } from './CodeEditor'
 import { Segmented, Select, Slider } from './ui'
-
-function newId(): string {
-  try {
-    return crypto.randomUUID()
-  } catch {
-    return `s${Date.now()}${Math.floor(Math.random() * 1e6)}`
-  }
-}
-
-export function makeDefaultSteps(): Step[] {
-  return STEP_SAMPLE.map((s) => ({
-    id: newId(),
-    code: s.code,
-    title: s.title,
-    transition: null,
-    annotations: [],
-  }))
-}
 
 export function CodePanel({
   settings,

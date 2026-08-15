@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Clapperboard, Film, Star } from 'lucide-react'
+import { Clapperboard, Film, FolderOpen, Save, Star } from 'lucide-react'
 import type { Aspect, Settings } from '../lib/types'
 import { fetchGitHubStarCount, GITHUB_REPOSITORY_URL } from '../lib/github'
 import { Segmented } from './ui'
@@ -70,10 +70,17 @@ export function TopBar({
   settings,
   update,
   onExport,
+  projectName,
+  onSave,
+  onOpenProjects,
 }: {
   settings: Settings
   update: (patch: Partial<Settings>) => void
   onExport: () => void
+  /** name of the open project ('' = unsaved draft) */
+  projectName: string
+  onSave: () => void
+  onOpenProjects: () => void
 }) {
   return (
     <header className="flex h-14 shrink-0 items-center gap-4 border-b border-white/5 bg-ink-900 px-4">
@@ -87,8 +94,34 @@ export function TopBar({
         </div>
       </div>
 
+      <div className="ml-3 hidden min-w-0 items-center gap-2 md:flex">
+        <FolderOpen className="h-3.5 w-3.5 shrink-0 text-zinc-600" />
+        <span
+          className="max-w-[180px] truncate text-[12px] text-zinc-400"
+          title={projectName || 'Unsaved draft'}
+        >
+          {projectName || 'Unsaved draft'}
+        </span>
+      </div>
+
       <div className="ml-auto flex items-center gap-3">
         <GitHubLink />
+        <button
+          type="button"
+          onClick={onOpenProjects}
+          className="flex h-[34px] cursor-pointer items-center gap-1.5 rounded-lg bg-white/5 px-2.5 text-[12px] font-medium text-zinc-300 ring-1 ring-white/5 ring-inset transition-colors hover:bg-white/10 hover:text-white"
+        >
+          <FolderOpen className="h-4 w-4" />
+          <span className="hidden sm:inline">Projects</span>
+        </button>
+        <button
+          type="button"
+          onClick={onSave}
+          className="flex h-[34px] cursor-pointer items-center gap-1.5 rounded-lg bg-white/5 px-2.5 text-[12px] font-medium text-zinc-300 ring-1 ring-white/5 ring-inset transition-colors hover:bg-white/10 hover:text-white"
+        >
+          <Save className="h-4 w-4" />
+          <span className="hidden sm:inline">Save</span>
+        </button>
         <Segmented<Aspect>
           value={settings.aspect}
           onChange={(v) => update({ aspect: v })}

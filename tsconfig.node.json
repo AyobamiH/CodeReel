@@ -7,8 +7,13 @@
     "types": ["node"],
     "skipLibCheck": true,
 
-    /* Bundler mode */
-    "module": "nodenext",
+    /* Bundler mode — matches tsconfig.app so bundler-style source (extensionless
+       relative imports) type-checks when pulled into unit tests. Actual runtime
+       resolution is handled separately: Vite for Playwright specs, and
+       test/register-ts.mjs for `node --test`. */
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "allowArbitraryExtensions": true,
     "allowImportingTsExtensions": true,
     "verbatimModuleSyntax": true,
     "moduleDetection": "force",
