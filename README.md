@@ -1,18 +1,21 @@
 # CodeReel — animate your code
 
-UI-only prototype of a tool that turns a code snippet into a short animated video
-clip (think carbon.now.sh, but the output is motion). No backend, no real encoding —
-the export flow is mocked.
+Turn a code snippet into a short, shareable animated clip (think carbon.now.sh,
+but the output is motion). Everything renders in a real **WebGL scene** (React
+Three Fiber), and **GIF export is real** — it re-uses the exact frames the
+preview shows and encodes them in-browser, no backend required.
 
 https://github.com/user-attachments/assets/11f73999-22a9-414e-8097-159ab6d68bdc
 
 ## Features
 
-- ✅ prototype
-- ☑️ MVP + export in multiple formats
-- ☑️ authentication
-- ☑️ save projects
-- ☑️ payment with PayPal
+- ✅ Live WebGL preview with real 3D depth, camera moves, and themed scene effects
+- ✅ Two authoring modes — **Sequence** (one block reveals) and **Steps** (a series of code snapshots with transitions)
+- ✅ Real **GIF export** — pick resolution + frame rate with a live size estimate
+- ☑️ MP4 / WebM export (not wired up yet)
+- ☑️ Authentication
+- ☑️ Save projects
+- ☑️ Payment with PayPal
 
 ## Run it
 
@@ -50,20 +53,48 @@ npm run test:e2e:ui
 
 ## What's inside
 
-- **Code input** (left panel): editable snippet, 9-language selector with per-language
-  sample code, and a hand-rolled syntax highlighter (`src/lib/highlight.ts`). Upload
-  UTF-8 source files up to 1 MB to replace the current snippet.
-- **Animated preview** (center): styled macOS-style code window rendered on an
-  aspect-ratio canvas, animated with typewriter / fade-in / slide motion presets.
-  The window auto-scales to fit the canvas.
-- **Playback bar**: play/pause/restart/loop, scrubbable timeline, duration and
-  speed controls. Space = play/pause, R = restart.
-- **Style panel** (right): 8 themes (Dracula, GitHub Dark, Nord, Solarized, Tokyo
-  Night, Monokai, Catppuccin Mocha, Vaporwave), background gradients + custom color,
-  window chrome + title, line numbers, corner radius, shadow, padding, font
-  family/size.
-- **Export bar** (top): 16:9 / 1:1 / 9:16 aspect presets, MP4 / GIF / WebM format
-  buttons, and a mocked export modal with phased progress.
+- **Code input** (left panel): editable snippet, 9-language selector (TypeScript,
+  JavaScript, Python, Rust, Go, CSS, HTML, JSON, Bash) with per-language sample
+  code and a hand-rolled syntax highlighter (`src/lib/highlight.ts`). Upload
+  UTF-8 source files up to 1 MB to replace the current snippet. Add a **console
+  output** section (success / warning / error status) and pin **line-callout
+  annotations** (badge, 3D depth, or callout style).
+- **Sequence vs. Steps**: reveal one block sequentially, or build a series of
+  code snapshots and pick how each **transitions** to the next — diff reveal,
+  crossfade, typewriter, 3D flip, or shatter.
+- **Animated preview** (center): a macOS-style code window rendered in a real
+  **WebGL scene** (`WebGLScene.tsx`, React Three Fiber) and animated purely from
+  playback `progress`. Reveal presets: typewriter, fade, slide, flip, per-token
+  cascade, shatter.
+- **3D & cinematic effects**: 8-direction perspective tilt, extruded card slab
+  with lit bevels, depth-of-field, parallax backdrop, floor reflection + cast
+  shadow, accent bloom, light-sweep sheen, ambient particles, hero-line
+  spotlight, freeze-frame outro, and seamless loop-wrap. Cinematic camera paths
+  (dolly, orbit, push-in, sweep, crash zoom) and themed scene effects (glitch,
+  matrix, hologram, synthwave, retro CRT, neon, Halloween).
+- **One-click vibe presets**: curated look bundles (Clean, Hacker, Neon,
+  Synthwave, Hologram, Retro) plus a "Surprise me" randomizer that shuffles the
+  styling without touching the deterministic render.
+- **Playback bar**: play/pause/restart/loop, scrubbable timeline (with clickable
+  step markers in Steps mode), duration and speed controls. Space = play/pause,
+  R = restart, ←/→ = prev/next step.
+- **Style panel** (right): 8 code themes (Dracula, GitHub Dark, Nord, Solarized,
+  Tokyo Night, Monokai, Catppuccin Mocha, Vaporwave), background gradients +
+  custom color, window chrome + title, line numbers, corner radius, shadow,
+  padding, font family/size, and a brand watermark + end-card CTA.
+- **Export**: 16:9 / 1:1 / 9:16 aspect presets and a real GIF export modal — the
+  scene steps `progress` 0→1, draws each WebGL frame on demand, composites
+  background + canvas + brand overlay, and encodes with `gifenc`. Choose the
+  output resolution (longest edge, never upscaled past the canvas's native size)
+  and frame rate, with a live file-size estimate. MP4 / WebM are not wired up yet.
 
-Stack: Vite + React 19 + TypeScript + Tailwind CSS v4. Fonts ship locally via
-Fontsource; icons are lucide-react.
+## Architecture note
+
+The preview renders as a **pure function of `progress` (0→1)** — no wall-clock in
+anything drawn into a frame. That's what lets export re-use the exact same
+rendering code with no rework. See `CLAUDE.md` and `docs/3d-roadmap.md` for the
+full design and the 3D effects roadmap.
+
+Stack: Vite + React 19 + TypeScript + Tailwind CSS v4, with three.js /
+@react-three/fiber / drei / postprocessing for the WebGL scene and `gifenc` for
+export. Fonts ship locally via Fontsource; icons are lucide-react.
