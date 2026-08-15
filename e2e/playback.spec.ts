@@ -28,13 +28,20 @@ test.describe('Playback', () => {
     await page.keyboard.press('Space')
     await expect.poll(() => currentTime(page)).toBeGreaterThan(paused)
 
-    // R restarts from the top
-    const before = await currentTime(page)
+    // R restarts from the top. Let it play clearly past the start first so the
+    // reset is unambiguous (a tiny `before` leaves too narrow a window to observe
+    // the drop, especially when a CPU-bound render shares the runner).
+    await expect.poll(() => currentTime(page)).toBeGreaterThan(1.5)
     await page.keyboard.press('r')
-    await expect.poll(() => currentTime(page)).toBeLessThan(before)
+    await expect.poll(() => currentTime(page)).toBeLessThan(1)
   })
 
   test('duration selector drives the total timeline length', async ({ page }) => {
+    // isolate the duration from the end-hold extension (which also adds to the total)
+    const endHold = page.locator('select', {
+      has: page.locator('option', { hasText: 'Off' }),
+    })
+    await endHold.selectOption({ label: 'Off' })
     const durationSelect = page.locator('select', {
       has: page.locator('option', { hasText: '15s' }),
     })

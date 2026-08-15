@@ -37,7 +37,10 @@ export function usePlayback(duration: number, speed: number, loop: boolean): Pla
     let raf = 0
     let last = performance.now()
     const tick = (now: number) => {
-      const dt = (now - last) / 1000
+      // Clamp dt: if rAF was starved (tab backgrounded, or the main thread was
+      // busy), a huge gap would leap `progress` forward by seconds in one frame.
+      // Capping it makes the clock resume smoothly instead of jumping.
+      const dt = Math.min(0.1, (now - last) / 1000)
       last = now
       let p = progressRef.current + (dt * speedRef.current) / durationRef.current
       // segment playback: stop cleanly at a target (used by manual step-through)

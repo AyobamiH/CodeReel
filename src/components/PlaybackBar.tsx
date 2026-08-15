@@ -1,5 +1,7 @@
 import {
+  Boxes,
   Braces,
+  Grip,
   Keyboard,
   MoveRight,
   Pause,
@@ -7,9 +9,11 @@ import {
   Repeat,
   RotateCcw,
   Rotate3d,
+  ScanLine,
   SkipBack,
   SkipForward,
   Sparkles,
+  type LucideIcon,
 } from 'lucide-react'
 import type { AnimationStyle, Settings } from '../lib/types'
 import type { Playback } from '../lib/usePlayback'
@@ -19,6 +23,65 @@ import { Segmented, Select } from './ui'
 function fmt(seconds: number): string {
   return `${seconds.toFixed(1)}s`
 }
+
+/**
+ * Motion options. The DOM and WebGL renderers reveal differently, so each option
+ * carries a WebGL-specific label/icon/title that describes what you actually see
+ * in 3D mode (e.g. the flip reveal is a glowing scan, tokens is a pixel dissolve).
+ */
+interface MotionOpt {
+  value: AnimationStyle
+  label: string
+  title: string
+  Icon: LucideIcon
+  /** WebGL-mode overrides (fall back to the DOM values when absent) */
+  wLabel?: string
+  wTitle?: string
+  WIcon?: LucideIcon
+}
+
+const MOTIONS: MotionOpt[] = [
+  {
+    value: 'typewriter',
+    label: 'Type',
+    title: 'Typewriter',
+    Icon: Keyboard,
+    wTitle: 'Type-on wipe',
+  },
+  { value: 'fade', label: 'Fade', title: 'Fade lines in', Icon: Sparkles, wTitle: 'Soft fade in' },
+  {
+    value: 'slide',
+    label: 'Slide',
+    title: 'Slide lines in',
+    Icon: MoveRight,
+    wTitle: 'Slide in from the left',
+  },
+  {
+    value: 'flip',
+    label: '3D',
+    title: '3D flip-up reveal',
+    Icon: Rotate3d,
+    wLabel: 'Scan',
+    wTitle: 'Glowing top-down scan',
+    WIcon: ScanLine,
+  },
+  {
+    value: 'tokens',
+    label: 'Tokens',
+    title: 'Per-token cascade',
+    Icon: Braces,
+    wLabel: 'Dissolve',
+    wTitle: 'Grainy pixel dissolve',
+    WIcon: Grip,
+  },
+  {
+    value: 'shatter',
+    label: 'Shatter',
+    title: 'Lines fly in from scattered shards',
+    Icon: Boxes,
+    wTitle: 'Code assembles from tumbling shards',
+  },
+]
 
 export function PlaybackBar({
   settings,
@@ -92,7 +155,7 @@ export function PlaybackBar({
       )}
 
       {/* controls */}
-      <div className="mt-2.5 flex items-center gap-4">
+      <div className="mt-2.5 flex flex-wrap items-center gap-x-4 gap-y-2.5">
         <div className="flex items-center gap-1.5">
           {isSteps && (
             <button
@@ -158,53 +221,18 @@ export function PlaybackBar({
               update({ animation: v })
               playback.restart()
             }}
-            options={[
-              {
-                value: 'typewriter',
-                title: 'Typewriter',
+            options={MOTIONS.map((m) => {
+              const Icon = m.WIcon || m.Icon
+              return {
+                value: m.value,
+                title: m.wTitle || m.title,
                 label: (
                   <span className="flex items-center gap-1.5">
-                    <Keyboard className="h-3.5 w-3.5" /> Type
+                    <Icon className="h-3.5 w-3.5" /> {m.wLabel || m.label}
                   </span>
                 ),
-              },
-              {
-                value: 'fade',
-                title: 'Fade lines in',
-                label: (
-                  <span className="flex items-center gap-1.5">
-                    <Sparkles className="h-3.5 w-3.5" /> Fade
-                  </span>
-                ),
-              },
-              {
-                value: 'slide',
-                title: 'Slide lines in',
-                label: (
-                  <span className="flex items-center gap-1.5">
-                    <MoveRight className="h-3.5 w-3.5" /> Slide
-                  </span>
-                ),
-              },
-              {
-                value: 'flip',
-                title: '3D flip-up reveal',
-                label: (
-                  <span className="flex items-center gap-1.5">
-                    <Rotate3d className="h-3.5 w-3.5" /> 3D
-                  </span>
-                ),
-              },
-              {
-                value: 'tokens',
-                title: 'Per-token cascade',
-                label: (
-                  <span className="flex items-center gap-1.5">
-                    <Braces className="h-3.5 w-3.5" /> Tokens
-                  </span>
-                ),
-              },
-            ]}
+              }
+            })}
           />
         </div>
 
@@ -224,6 +252,42 @@ export function PlaybackBar({
               options={[3, 5, 8, 10, 15].map((s) => ({ value: String(s), label: `${s}s` }))}
               onChange={(v) => update({ duration: Number(v) })}
             />
+          </div>
+          <div className="flex items-center gap-2">
+            <span
+              className="text-[11px] font-medium tracking-wide text-zinc-500 uppercase"
+              title="Freeze-frame hold at the end — the finished result lingers and gently hovers"
+            >
+              End hold
+            </span>
+            <Select
+              className="w-[76px]"
+              value={String(settings.outro)}
+              options={[0, 1.5, 3, 5, 10].map((s) => ({
+                value: String(s),
+                label: s === 0 ? 'Off' : `${s}s`,
+              }))}
+              onChange={(v) => update({ outro: Number(v) })}
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <span
+              className="text-[11px] font-medium tracking-wide text-zinc-500 uppercase"
+              title="Seamless loop — the card materialises from nothing and dissolves back to it, so the take loops with no visible cut"
+            >
+              Seamless loop
+            </span>
+            <button
+              type="button"
+              onClick={() => update({ loopWrap: !settings.loopWrap })}
+              className={`h-7 cursor-pointer rounded-full px-3 text-[11px] font-medium transition-all duration-150 active:scale-95 ${
+                settings.loopWrap
+                  ? 'bg-accent-500/15 text-accent-400 ring-1 ring-accent-500/30'
+                  : 'text-zinc-400 ring-1 ring-white/10 hover:bg-white/8 hover:text-white'
+              }`}
+            >
+              {settings.loopWrap ? 'On' : 'Off'}
+            </button>
           </div>
           <div className="flex items-center gap-2">
             <span className="text-[11px] font-medium tracking-wide text-zinc-500 uppercase">
