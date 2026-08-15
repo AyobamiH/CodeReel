@@ -175,6 +175,30 @@ export const THEMES: CodeTheme[] = [
       attr: '#f9e2af',
     },
   },
+  {
+    id: 'vaporwave',
+    name: 'Vaporwave',
+    bg: '#2b1055',
+    fg: '#f4eaff',
+    chromeBg: 'rgba(255,110,247,0.10)',
+    lineNumber: '#7b5ea7',
+    caret: '#36f9f6',
+    swatch: ['#2b1055', '#ff6ec7', '#36f9f6'],
+    colors: {
+      keyword: '#fe4450',
+      string: '#72f1b8',
+      comment: '#8b7bab',
+      number: '#ff8b39',
+      function: '#36f9f6',
+      type: '#fede5d',
+      constant: '#ff8b39',
+      property: '#ff6ec7',
+      operator: '#f97e72',
+      punct: '#c7b3ff',
+      tag: '#fe4450',
+      attr: '#fede5d',
+    },
+  },
 ]
 
 export interface Background {
