@@ -12,10 +12,11 @@ https://github.com/user-attachments/assets/11f73999-22a9-414e-8097-159ab6d68bdc
 - ✅ Live WebGL preview with real 3D depth, camera moves, and themed scene effects
 - ✅ Two authoring modes — **Sequence** (one block reveals) and **Steps** (a series of code snapshots with transitions)
 - ✅ Real **GIF export** — pick resolution + frame rate with a live size estimate
-- ☑️ MP4 / WebM export (not wired up yet)
-- ☑️ Authentication
-- ☑️ Save projects
-- ☑️ Payment with PayPal
+- ✅ MP4 / Gif export
+- ✅ Save projects locally
+- ☑️ Supabase (GitHub authentication)
+- ☑️ Save projects to Supabase
+- ☑️ Pay 1 off lifetime with PayPal (premium features: save projects)
 
 ## Run it
 
