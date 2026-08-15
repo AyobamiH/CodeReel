@@ -11,9 +11,6 @@ test.describe('Playback', () => {
   })
 
   test('space pauses and resumes, R restarts', async ({ page }) => {
-    // move focus off any control so the window-level shortcuts fire
-    await page.getByRole('main').click({ position: { x: 4, y: 4 } })
-
     // the take auto-plays on load
     await expect.poll(() => currentTime(page)).toBeGreaterThan(0)
 
@@ -30,10 +27,65 @@ test.describe('Playback', () => {
 
     // R restarts from the top. Let it play clearly past the start first so the
     // reset is unambiguous (a tiny `before` leaves too narrow a window to observe
-    // the drop, especially when a CPU-bound render shares the runner).
-    await expect.poll(() => currentTime(page)).toBeGreaterThan(1.5)
+    // the drop, especially when a CPU-bound render shares the runner). Give the
+    // poll extra room: under full-suite parallelism the rAF clock is starved and
+    // its dt clamp makes the playhead advance slower than wall-clock, so reaching
+    // 1.5s of progress can take noticeably longer than the default 5s timeout.
+    await expect.poll(() => currentTime(page), { timeout: 15000 }).toBeGreaterThan(1.5)
     await page.keyboard.press('r')
     await expect.poll(() => currentTime(page)).toBeLessThan(1)
+  })
+
+  test('preview and playback bar share the same playback state', async ({ page }) => {
+    const preview = page.getByRole('group', { name: 'Code preview' })
+    const previewPlayback = preview.getByRole('button', { name: 'Preview playback' })
+    const playbackBarToggle = page.getByTitle('Play / pause (Space)')
+
+    await expect(previewPlayback).toHaveAttribute('aria-pressed', 'true')
+
+    await preview.click()
+    await expect(previewPlayback).toHaveAttribute('aria-pressed', 'false')
+
+    await playbackBarToggle.click()
+    await expect(previewPlayback).toHaveAttribute('aria-pressed', 'true')
+
+    // The nested preview button owns its click; the surface must not toggle a second time.
+    await previewPlayback.click()
+    await expect(previewPlayback).toHaveAttribute('aria-pressed', 'false')
+  })
+
+  test('preview playback control supports keyboard activation', async ({ page }) => {
+    const previewPlayback = page.getByRole('button', { name: 'Preview playback' })
+
+    await previewPlayback.focus()
+    await expect(previewPlayback).toHaveAttribute('aria-pressed', 'true')
+
+    await page.keyboard.press('Space')
+    await expect(previewPlayback).toHaveAttribute('aria-pressed', 'false')
+
+    await page.keyboard.press('Enter')
+    await expect(previewPlayback).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  test('clicking the preview surface freezes and resumes the real clock', async ({ page }) => {
+    // aria-pressed alone could be cosmetic — assert the toggle drives the actual
+    // playback clock. This guards the wiring: the surface must wrap the live
+    // renderer, not a detached/placeholder one.
+    const preview = page.getByRole('group', { name: 'Code preview' })
+
+    // the take auto-plays on load
+    await expect.poll(() => currentTime(page)).toBeGreaterThan(0)
+
+    // click the surface (center hits the canvas, not the corner button) — pauses
+    await preview.click()
+    await page.waitForTimeout(250)
+    const paused = await currentTime(page)
+    await page.waitForTimeout(400)
+    expect(await currentTime(page)).toBe(paused)
+
+    // click again — the clock advances past where it froze
+    await preview.click()
+    await expect.poll(() => currentTime(page)).toBeGreaterThan(paused)
   })
 
   test('duration selector drives the total timeline length', async ({ page }) => {
