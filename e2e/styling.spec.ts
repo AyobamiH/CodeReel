@@ -53,7 +53,12 @@ test.describe('Style panel', () => {
     await ocean.click()
     await expect(ocean).toHaveClass(/ring-accent-400/)
 
-    await page.locator('input[type="color"]').fill('#123456')
-    await expect(page.getByTitle('Custom color')).toHaveClass(/ring-accent-400/)
+    // The custom background is now driven by a portalled ColorPicker popover
+    // (no native <input type="color">). Open it and change a channel; that sets
+    // `customBg`, which marks the swatch active.
+    const custom = page.getByTitle('Custom color')
+    await custom.click()
+    await page.getByRole('spinbutton').first().fill('18')
+    await expect(custom).toHaveClass(/ring-accent-400/)
   })
 })

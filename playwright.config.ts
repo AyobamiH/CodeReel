@@ -7,7 +7,14 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 2 : 0,
-  reporter: process.env.CI ? 'github' : 'list',
+  // The preview is a continuously-rendering WebGL canvas. On CI's shared 2-core
+  // runners the GPU is software-emulated (SwiftShader), so two parallel workers
+  // each driving a canvas saturate the CPU — the page never reaches Playwright's
+  // "stable" actionability state and clicks time out. Run serially on CI (it
+  // still finishes in a couple of minutes) and give each test extra headroom.
+  workers: process.env.CI ? 1 : undefined,
+  timeout: process.env.CI ? 60_000 : 30_000,
+  reporter: process.env.CI ? [['github'], ['html', { open: 'never' }]] : 'list',
   use: {
     baseURL,
     screenshot: 'only-on-failure',
