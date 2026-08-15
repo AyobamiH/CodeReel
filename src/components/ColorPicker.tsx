@@ -192,25 +192,11 @@ export function ColorPicker({
 
   return (
     <>
-      <input
-        type="color"
-        value={value || '#4f46e5'}
-        onChange={(e) => onChange(e.target.value)}
-        aria-label={title ?? 'Color'}
-        style={{
-          position: 'fixed',
-          left: 0,
-          top: 0,
-          width: 1,
-          height: 1,
-          opacity: 0,
-        }}
-      />
-
       <button
         ref={triggerRef}
         type="button"
         title={title}
+        aria-label={title ?? 'Color'}
         className={className}
         onClick={() => setOpen((o) => !o)}
       >
