@@ -28,9 +28,16 @@ export async function currentTime(page: Page): Promise<number> {
  * than the DOM — freezing playback first makes those comparisons deterministic.
  */
 export async function pausePreview(page: Page): Promise<void> {
-  // move focus off any control so the window-level Space shortcut pauses playback
-  await page.getByRole('main').click({ position: { x: 4, y: 4 } })
-  await page.keyboard.press('Space')
+  // Toggle playback off via the preview's own control (aria-pressed mirrors the
+  // clock). Idempotent: only clicks when it's actually playing, so callers land
+  // on a paused, stable frame no matter the current state. Note: clicking the
+  // preview surface itself also toggles playback, so we can't rely on a stray
+  // click elsewhere to "just move focus" any more.
+  const toggle = page.getByRole('button', { name: 'Preview playback' })
+  if ((await toggle.getAttribute('aria-pressed')) === 'true') {
+    await toggle.click()
+  }
+  await expect(toggle).toHaveAttribute('aria-pressed', 'false')
   await page.waitForTimeout(300)
 }
 

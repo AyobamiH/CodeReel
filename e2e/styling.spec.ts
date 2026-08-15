@@ -26,10 +26,16 @@ test.describe('Style panel', () => {
   })
 
   test('changing the theme recolours the rendered preview', async ({ page }) => {
+    // The preview draws to a WebGL <canvas>, so a theme swap shows up as pixels,
+    // not DOM colour — compare frame signatures. Covers the newest theme too.
     await pausePreview(page)
     await expectPreviewChanges(page, () =>
       page.getByRole('button', { name: 'GitHub Dark' }).click(),
     )
+    await expectPreviewChanges(page, () =>
+      page.getByRole('button', { name: 'Catppuccin Mocha' }).click(),
+    )
+    await expectPreviewChanges(page, () => page.getByRole('button', { name: 'Vaporwave' }).click())
   })
 
   test('the font family is selectable', async ({ page }) => {
