@@ -5,7 +5,8 @@ but the output is motion). Everything renders in a real **WebGL scene** (React
 Three Fiber), and **GIF export is real** — it re-uses the exact frames the
 preview shows and encodes them in-browser, no backend required.
 
-https://github.com/user-attachments/assets/11f73999-22a9-414e-8097-159ab6d68bdc
+<img width="960" height="540" alt="demo3" src="https://github.com/user-attachments/assets/9b035483-33e1-4ee3-9855-2076baa62236" />
+
 
 ## Features
 
