@@ -7,7 +7,6 @@ import { buildTimeline, currentStep, stepAnchor } from './lib/timeline'
 import { TopBar } from './components/TopBar'
 import { CodePanel, makeDefaultSteps } from './components/CodePanel'
 import { StylePanel } from './components/StylePanel'
-import { PreviewCanvas } from './components/PreviewCanvas'
 import { PreviewPlaybackSurface } from './components/PreviewPlaybackSurface'
 import { BrandOverlay } from './components/BrandOverlay'
 // WebGL is the sole renderer; lazy-load it so the three.js/R3F bundle isn't part of
@@ -188,13 +187,6 @@ export default function App() {
         />
         <main className="flex min-w-0 flex-1 flex-col">
           <PreviewPlaybackSurface playing={playback.playing} onTogglePlayback={toggle}>
-            <PreviewCanvas
-              settings={settings}
-              progress={playback.progress}
-              playing={playback.playing}
-            />
-          </PreviewPlaybackSurface>
-          <div className="relative flex min-h-0 flex-1">
             <Suspense
               fallback={
                 <div className="stage-grid flex min-h-0 flex-1 items-center justify-center text-sm text-zinc-500">
@@ -210,7 +202,7 @@ export default function App() {
               />
             </Suspense>
             <BrandOverlay settings={settings} progress={sceneProgress} />
-          </div>
+          </PreviewPlaybackSurface>
           <PlaybackBar
             settings={settings}
             update={update}
