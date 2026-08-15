@@ -655,6 +655,7 @@ function Rig({
   const flashRef = useRef<THREE.Mesh>(null)
   const flashMatRef = useRef<THREE.MeshBasicMaterial>(null)
   const overlayRef = useRef<THREE.Mesh>(null)
+  const reflectRef = useRef<THREE.Mesh>(null)
 
   const theme = THEMES.find((t) => t.id === settings.themeId) ?? THEMES[0]
 
@@ -663,7 +664,13 @@ function Rig({
   // separately-held reference would never reach the material that renders — owning
   // the instance guarantees our per-frame writes land on the real uniforms.
   const material = useMemo(() => makeCardMaterial(false), [])
-  const reflectMat = useMemo(() => makeCardMaterial(true), [])
+  const reflectMat = useMemo(() => {
+    // the mirror leans opposite the card, so its front can face slightly away —
+    // DoubleSide keeps the reflection drawn at any tilt
+    const m = makeCardMaterial(true)
+    m.side = THREE.DoubleSide
+    return m
+  }, [])
   const backdropMat = useMemo(() => makeBackdropMaterial(), [])
   const overlayMat = useMemo(() => makeOverlayMaterial(), [])
   useEffect(
@@ -753,6 +760,19 @@ function Rig({
         cardRef.current.rotation.y += Math.sin(t) * 0.03
         cardRef.current.rotation.x += Math.sin(t * 2) * 0.02
       }
+    }
+
+    // --- floor reflection: a *true mirror* of the card across its base edge.
+    // A child mesh would rotate about the card's centre, so under tilt the copy
+    // (which sits a full plane-height below that pivot) swings out and reads as a
+    // detached second card. Instead we drive a sibling: drop it below and reflect
+    // the card's orientation across the horizontal base plane — negate the in-plane
+    // tilts (X/Z), keep the vertical-axis spin (Y). The shader already inverts the
+    // texture, so the reflection stays glued to the base and matches the face. ---
+    if (reflectRef.current && cardRef.current) {
+      const c = cardRef.current
+      reflectRef.current.position.set(c.position.x, c.position.y - planeH, c.position.z)
+      reflectRef.current.rotation.set(-c.rotation.x, c.rotation.y, -c.rotation.z)
     }
 
     // --- accent glow behind the card: breathes with sin(progress·4π), like the DOM bloom ---
@@ -1030,9 +1050,6 @@ function Rig({
             />
           </RoundedBox>
         )}
-        <mesh material={reflectMat} position={[0, -planeH, 0]}>
-          <planeGeometry args={[planeW, planeH, 1, 1]} />
-        </mesh>
         {curAnnos.map((a) => {
           const pillX = aStyle === 'callout' ? planeW / 2 + aGap + a.w / 2 : a.cx + aGap + a.w / 2
           const pillZ = aStyle === 'depth' ? 0.4 : 0.03
@@ -1046,24 +1063,38 @@ function Rig({
               </mesh>
               {/* connector out to the callout pill */}
               {aStyle === 'callout' && (
-                <mesh position={[(a.cx + planeW / 2) / 2, a.cy, 0.02]}>
+                <mesh renderOrder={8} position={[(a.cx + planeW / 2) / 2, a.cy, 0.02]}>
                   <planeGeometry args={[Math.max(0.01, planeW / 2 - a.cx), 0.014, 1, 1]} />
                   <meshBasicMaterial
                     color={a.color}
                     transparent
-                    opacity={0.85}
+                    depthTest={false}
                     depthWrite={false}
+                    opacity={0.85}
                   />
                 </mesh>
               )}
-              {/* the caption pill */}
-              <mesh position={[pillX, a.cy, pillZ]} scale={[pillScale, pillScale, 1]}>
+              {/* the caption pill — always drawn on top of the card body. It's a
+                  child of the (tilted, extruded) card, so with plain depth-testing
+                  a pill that overhangs an edge gets swallowed by the slab when that
+                  edge tilts away from the camera. depthTest:false + a raised
+                  renderOrder keeps captions readable at any perspective. */}
+              <mesh
+                renderOrder={8}
+                position={[pillX, a.cy, pillZ]}
+                scale={[pillScale, pillScale, 1]}
+              >
                 <planeGeometry args={[a.w, a.h, 1, 1]} />
-                <meshBasicMaterial map={a.tex} transparent depthWrite={false} />
+                <meshBasicMaterial map={a.tex} transparent depthTest={false} depthWrite={false} />
               </mesh>
             </group>
           )
         })}
+      </mesh>
+      {/* floor reflection — a sibling of the card so it can mirror (not inherit)
+          the card's transform; positioned + oriented each frame in the Rig */}
+      <mesh ref={reflectRef} material={reflectMat}>
+        <planeGeometry args={[planeW, planeH, 1, 1]} />
       </mesh>
       {/* ambient particles + success confetti — sized in the effect above */}
       <mesh ref={overlayRef} material={overlayMat} renderOrder={9}>
@@ -1324,12 +1355,21 @@ export function WebGLScene({
   return (
     <div
       ref={stageRef}
-      className={`stage-grid relative flex min-h-0 flex-1 items-center justify-center overflow-hidden ${
-        isTransparent ? 'checkerboard' : ''
-      }`}
-      style={{ background: isTransparent ? undefined : background }}
+      className="stage-grid relative flex min-h-0 flex-1 items-center justify-center overflow-hidden"
     >
-      <div className="relative" style={{ width: frame.w, height: frame.h }}>
+      {/* the colour/scene background belongs to the export FRAME, not the whole
+          stage: a Scene FX backdrop only fills the 16:9 canvas, so if the aurora
+          lived on the stage the letterbox would show it and the preview would look
+          half-covered. Confining it here keeps the surround a neutral dotted
+          backdrop and the coloured area exactly matches what gets exported. */}
+      <div
+        className={`relative ${isTransparent ? 'checkerboard' : ''}`}
+        style={{
+          width: frame.w,
+          height: frame.h,
+          background: isTransparent ? undefined : background,
+        }}
+      >
         {frame.w > 0 && (
           <Canvas
             // Remount on aspect change: R3F's react-use-measure can miss a parent
