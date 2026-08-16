@@ -27,13 +27,16 @@ test.describe('Playback', () => {
 
     // R restarts from the top. Let it play clearly past the start first so the
     // reset is unambiguous (a tiny `before` leaves too narrow a window to observe
-    // the drop, especially when a CPU-bound render shares the runner). Give the
-    // poll extra room: under full-suite parallelism the rAF clock is starved and
-    // its dt clamp makes the playhead advance slower than wall-clock, so reaching
-    // 1.5s of progress can take noticeably longer than the default 5s timeout.
-    await expect.poll(() => currentTime(page), { timeout: 15000 }).toBeGreaterThan(1.5)
+    // the drop). We can't wait for a large absolute time: on CI's software-rendered
+    // WebGL runner the rAF clock is badly starved and its dt clamp (see
+    // usePlayback) makes the playhead advance at a fraction of wall-clock, so a
+    // high threshold like 1.5s can exceed any reasonable poll budget. Wait for a
+    // modest-but-unambiguous advance, then assert R drops the playhead well below
+    // it — that gap is what proves the restart, regardless of clock speed.
+    await expect.poll(() => currentTime(page), { timeout: 15000 }).toBeGreaterThan(0.6)
+    const advanced = await currentTime(page)
     await page.keyboard.press('r')
-    await expect.poll(() => currentTime(page)).toBeLessThan(1)
+    await expect.poll(() => currentTime(page)).toBeLessThan(advanced - 0.3)
   })
 
   test('preview and playback bar share the same playback state', async ({ page }) => {

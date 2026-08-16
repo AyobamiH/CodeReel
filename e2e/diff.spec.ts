@@ -42,6 +42,10 @@ test.describe('Diff view (steps mode)', () => {
   })
 
   test('the animated diff transition renders distinct intermediate frames', async ({ page }) => {
+    // A ~26-step sweep, each fill waiting for canvas actionability + a pixel
+    // readback, is CPU-bound; on CI's software-rendered WebGL runner it can exceed
+    // the default per-test budget. Give it the tripled slow-test budget.
+    test.slow()
     await codePanel(page).getByRole('switch').click() // diff on
     await pausePreview(page)
     const scrub = page.locator('input[type="range"][max="1000"]')

@@ -67,10 +67,12 @@ test.describe('CodeReel critical journeys', () => {
     await page.getByRole('button', { name: 'Export', exact: true }).click()
     await expect(download).toBeDisabled()
 
-    // the encode is CPU-bound and shares the runner with the parallel suite, so
-    // allow generous headroom (test.slow() gives the test itself a 90s budget)
+    // the encode is CPU-bound and every frame is a software-rendered WebGL draw on
+    // CI, so allow generous headroom. test.slow() triples the per-test budget
+    // (60s → 180s on CI); let this assertion use most of it rather than tripping
+    // its own tighter cap first.
     await expect(page.getByRole('heading', { name: 'Export complete' })).toBeVisible({
-      timeout: 60_000,
+      timeout: 150_000,
     })
     await expect(page.getByText('codereel-1x1.gif', { exact: true })).toBeVisible()
     await expect(download).toBeEnabled()
