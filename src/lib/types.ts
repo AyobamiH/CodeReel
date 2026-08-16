@@ -159,6 +159,8 @@ export interface Settings {
   stepHold: number
   /** seconds a step→step transition takes */
   transitionDur: number
+  /** steps mode: render each step as a git-style merged diff against the previous step */
+  diffMode: boolean
   /** freeze-frame hold at the very end: the finished result lingers + gently hovers (0 = off) */
   outro: number
   /** seamless loop: card materialises from nothing + dissolves back so last frame == first */

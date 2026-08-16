@@ -34,7 +34,7 @@ import { useSourceFileUpload } from '../lib/useSourceFileUpload'
 import { SAMPLES } from '../lib/samples'
 import { makeDefaultSteps, newId } from '../lib/defaults'
 import { CodeEditor } from './CodeEditor'
-import { Segmented, Select, Slider } from './ui'
+import { Segmented, Select, Slider, Toggle } from './ui'
 
 export function CodePanel({
   settings,
@@ -411,6 +411,15 @@ export function CodePanel({
       {/* steps mode: default transition + timing */}
       {settings.mode === 'steps' && (
         <div className="flex flex-col gap-3 border-t border-white/5 px-4 py-3">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex flex-col">
+              <span className="text-[13px] text-zinc-400">Diff view</span>
+              <span className="text-[11px] leading-snug text-zinc-600">
+                Show each step as a red/green diff vs. the previous
+              </span>
+            </div>
+            <Toggle checked={settings.diffMode} onChange={(v) => update({ diffMode: v })} />
+          </div>
           <label className="flex items-center justify-between gap-3">
             <span className="text-[13px] text-zinc-400">Default transition</span>
             <Select

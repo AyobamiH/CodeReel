@@ -39,6 +39,7 @@ export const DEFAULT_SETTINGS: Settings = {
   transition: 'diff',
   stepHold: 1.2,
   transitionDur: 0.8,
+  diffMode: false,
   outro: 3,
   loopWrap: false,
   language: 'typescript',

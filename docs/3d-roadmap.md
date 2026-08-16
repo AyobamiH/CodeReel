@@ -88,6 +88,16 @@ of the exported frame) and drift via loop-safe sine of `progress`.
 
 **Tier 2 is complete.**
 
+### Diff view (steps mode) — shipped
+
+A `diffMode` toggle renders each step as a git-style merged diff vs. the previous
+step (red/removed + strikethrough, green/added, `+`/`−` gutter). The transition
+into a diffed step animates the markers in (removed struck first, then added
+fade/slide in), driven entirely by `progress`/`localT` so it stays export-safe.
+Lives in `src/lib/diff.ts` (`diffLines`), `src/lib/codeTexture.ts` (paint +
+per-line reveal), and `src/components/WebGLScene.tsx` (dynamic diff texture +
+transition wiring). See `CLAUDE.md` for the full description.
+
 ### Tier 3 — Real 3D (React Three Fiber; bigger lift, parallel renderer)
 
 - Render the code card as a textured plane in an actual 3D scene.

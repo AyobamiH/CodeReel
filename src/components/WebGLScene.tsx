@@ -10,7 +10,7 @@ import { BACKGROUNDS, THEMES } from '../lib/themes'
 import { lineLength, tokenizeLines } from '../lib/highlight'
 import { buildTimeline, locate, loopFade, type Phase } from '../lib/timeline'
 import { drawAnnotationPill, drawCard, measureCard, type CardStyle } from '../lib/codeTexture'
-import { addedIndices, diffLineStatus } from '../lib/diff'
+import { addedIndices, diffLineStatus, diffLines, type DiffStatus } from '../lib/diff'
 
 /** uv.y band covering a step's added lines, for the hero-line spotlight. */
 type SpotBand = { lo: number; hi: number } | null
@@ -628,8 +628,12 @@ function Rig({
   glow,
   consoleTex,
   redrawConsole,
+  diffTex,
+  redrawDiff,
+  diffInfos,
   spotBands,
   annoLayout,
+  cardSizes,
 }: {
   settings: Settings
   progress: number
@@ -641,13 +645,22 @@ function Rig({
   consoleTex: THREE.CanvasTexture | null
   /** redraw `consoleTex` for the given step with `reveal` (0..1) of the output typed */
   redrawConsole: (step: number, reveal: number) => void
+  /** dynamic texture animating a step's diff markers in (null = diff anim off) */
+  diffTex: THREE.CanvasTexture | null
+  /** redraw `diffTex` for the given step at animation progress `animT` (0..1) */
+  redrawDiff: (step: number, animT: number) => void
+  /** per-snapshot diff status (null = plain, non-diffed snapshot) */
+  diffInfos: (DiffStatus[] | null)[]
   /** per-step uv.y band of added lines, for the hero-line spotlight */
   spotBands: SpotBand[]
   /** per-snapshot laid-out annotations (separate 3D objects) */
   annoLayout: AnnoItem[][]
+  /** per-snapshot opaque card size as a fraction (0..1) of the shared plane */
+  cardSizes: { w: number; h: number }[]
 }) {
   const { camera, size, invalidate } = useThree()
   const cardRef = useRef<THREE.Mesh>(null)
+  const slabRef = useRef<THREE.Mesh>(null)
   const glowRef = useRef<THREE.Mesh>(null)
   const glowMatRef = useRef<THREE.MeshBasicMaterial>(null)
   const shadowMatRef = useRef<THREE.MeshBasicMaterial>(null)
@@ -700,6 +713,36 @@ function Rig({
       redrawConsole(phase.step, phase.kind === 'console' ? easeOutCubic(clamp01(localT)) : 1)
       f.a = consoleTex
       f.b = null
+    }
+
+    // diff-animated transition: instead of blending two merged-diff textures,
+    // animate the incoming step's diff markers in on a single dynamic texture.
+    // A brief crossfade from the previous step's settled view opens it, so that
+    // step's own markers don't pop the instant this transition begins.
+    if (phase.kind === 'trans' && diffTex && diffInfos[phase.step]) {
+      redrawDiff(phase.step, easeInOutCubic(clamp01(localT)))
+      f.a = textures[phase.from ?? phase.step] ?? diffTex
+      f.b = diffTex
+      f.mix = clamp01(localT / 0.3)
+      f.mode = MODE.crossfade
+      f.reveal = 1
+    }
+
+    // slab sizing: shrink the extruded 3D block to the visible card of the
+    // current snapshot. Snapshots share one max-sized box, so a shorter one is
+    // letterboxed — a full-plane slab would overhang it and read as a second
+    // card. During a transition, lerp between the two cards' sizes.
+    if (slabRef.current) {
+      const to = cardSizes[phase.step] ?? { w: 1, h: 1 }
+      let fw = to.w
+      let fh = to.h
+      if (phase.kind === 'trans') {
+        const from = cardSizes[phase.from ?? phase.step] ?? to
+        const t = clamp01(localT)
+        fw = from.w + (to.w - from.w) * t
+        fh = from.h + (to.h - from.h) * t
+      }
+      slabRef.current.scale.set(fw, fh, 1)
     }
 
     // hero-line spotlight: focus the changed lines during a transition, ease out on the hold
@@ -936,7 +979,11 @@ function Rig({
     overlayMat,
     consoleTex,
     redrawConsole,
+    diffTex,
+    redrawDiff,
+    diffInfos,
     spotBands,
+    cardSizes,
     invalidate,
   ])
 
@@ -1036,6 +1083,7 @@ function Rig({
         {/* extruded slab body behind the code face — real thickness + lit, beveled edges */}
         {settings.slab > 0 && (
           <RoundedBox
+            ref={slabRef}
             args={[planeW, planeH, slabDepth]}
             radius={Math.min(0.05, slabDepth / 2)}
             smoothness={3}
@@ -1227,11 +1275,30 @@ export function WebGLScene({
     ],
   )
 
-  // tokenize the snapshot(s) that will be rasterized
-  const snapshots = useMemo(() => {
-    if (isSteps) return settings.steps.map((s) => tokenizeLines(s.code, settings.language))
-    return [tokenizeLines(settings.code, settings.language)]
-  }, [isSteps, settings.steps, settings.code, settings.language])
+  // tokenize the snapshot(s) that will be rasterized, plus (in diff mode) a
+  // parallel per-line status so each step renders as a merged diff vs. the
+  // previous step. `diffInfos[i]` is null for plain (non-diffed) snapshots.
+  const { snapshots, diffInfos } = useMemo(() => {
+    if (isSteps) {
+      const snaps: ReturnType<typeof tokenizeLines>[] = []
+      const infos: (DiffStatus[] | null)[] = []
+      settings.steps.forEach((s, i) => {
+        if (settings.diffMode && i > 0) {
+          const dl = diffLines(settings.steps[i - 1].code, s.code)
+          snaps.push(tokenizeLines(dl.map((d) => d.text).join('\n'), settings.language))
+          infos.push(dl.map((d) => d.status))
+        } else {
+          snaps.push(tokenizeLines(s.code, settings.language))
+          infos.push(null)
+        }
+      })
+      return { snapshots: snaps, diffInfos: infos }
+    }
+    return {
+      snapshots: [tokenizeLines(settings.code, settings.language)],
+      diffInfos: [null as DiffStatus[] | null],
+    }
+  }, [isSteps, settings.steps, settings.code, settings.language, settings.diffMode])
 
   // line annotations, parallel to `snapshots`
   const snapAnnos = useMemo(
@@ -1243,40 +1310,86 @@ export function WebGLScene({
   useEffect(() => () => glow.dispose(), [glow])
 
   // rasterize every snapshot into a common box → identical texture sizes → clean shader UVs
-  const { textures, planeW, planeH, consoleTex, redrawConsole, spotBands, annoLayout } =
-    useMemo(() => {
-      const metrics = snapshots.map((lines) => measureCard(lines, cardStyle))
-      const boxW = Math.max(...metrics.map((m) => m.w))
-      const boxH = Math.max(...metrics.map((m) => m.h))
-      const dpr = Math.min(2, typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1)
-      const mkTex = (cv: HTMLCanvasElement) => {
-        const tex = new THREE.CanvasTexture(cv)
-        tex.colorSpace = THREE.SRGBColorSpace
-        tex.minFilter = THREE.LinearMipmapLinearFilter
-        tex.magFilter = THREE.LinearFilter
-        tex.anisotropy = 8
-        tex.needsUpdate = true
-        return tex
-      }
-      // base snapshots: console space reserved (all cards same height) but not drawn
-      const texes = snapshots.map((lines) => {
-        const cv = document.createElement('canvas')
-        drawCard(cv, lines, cardStyle, dpr, boxW, boxH, -1)
-        return mkTex(cv)
-      })
+  const {
+    textures,
+    planeW,
+    planeH,
+    consoleTex,
+    redrawConsole,
+    diffTex,
+    redrawDiff,
+    spotBands,
+    annoLayout,
+    cardSizes,
+  } = useMemo(() => {
+    const metrics = snapshots.map((lines) => measureCard(lines, cardStyle))
+    const boxW = Math.max(...metrics.map((m) => m.w))
+    const boxH = Math.max(...metrics.map((m) => m.h))
+    // each snapshot's opaque card fills only m.w×m.h, centred in the shared
+    // box — so the slab (sized to the whole plane) must shrink to match, or it
+    // overhangs a smaller snapshot and reads as a second card behind it.
+    const cardSizes = metrics.map((m) => ({ w: m.w / boxW, h: m.h / boxH }))
+    const dpr = Math.min(2, typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1)
+    const mkTex = (cv: HTMLCanvasElement) => {
+      const tex = new THREE.CanvasTexture(cv)
+      tex.colorSpace = THREE.SRGBColorSpace
+      tex.minFilter = THREE.LinearMipmapLinearFilter
+      tex.magFilter = THREE.LinearFilter
+      tex.anisotropy = 8
+      tex.needsUpdate = true
+      return tex
+    }
+    // base snapshots: console space reserved (all cards same height) but not drawn
+    const texes = snapshots.map((lines, i) => {
+      const cv = document.createElement('canvas')
+      drawCard(cv, lines, cardStyle, dpr, boxW, boxH, -1, diffInfos[i] ?? undefined)
+      return mkTex(cv)
+    })
 
-      // a dynamic texture that types the console out during the console phase
-      const hasConsole = cardStyle.consoleLines.length > 0
-      const consoleCanvas = hasConsole ? document.createElement('canvas') : null
-      const consoleTexture = consoleCanvas ? mkTex(consoleCanvas) : null
-      const redrawConsole = (step: number, reveal: number) => {
-        if (!consoleCanvas) return
-        drawCard(consoleCanvas, snapshots[step] ?? snapshots[0], cardStyle, dpr, boxW, boxH, reveal)
-        if (consoleTexture) consoleTexture.needsUpdate = true
-      }
+    // a dynamic texture that types the console out during the console phase
+    const hasConsole = cardStyle.consoleLines.length > 0
+    const consoleCanvas = hasConsole ? document.createElement('canvas') : null
+    const consoleTexture = consoleCanvas ? mkTex(consoleCanvas) : null
+    const redrawConsole = (step: number, reveal: number) => {
+      if (!consoleCanvas) return
+      drawCard(
+        consoleCanvas,
+        snapshots[step] ?? snapshots[0],
+        cardStyle,
+        dpr,
+        boxW,
+        boxH,
+        reveal,
+        diffInfos[step] ?? undefined,
+      )
+      if (consoleTexture) consoleTexture.needsUpdate = true
+    }
 
-      // hero-line spotlight: for each step, the uv.y band covering its added lines
-      const spotBands: SpotBand[] = isSteps
+    // a dynamic texture that animates a step's diff markers in during its
+    // transition (added lines fade/slide in, removed lines get struck).
+    const wantDiffAnim = settings.diffMode && isSteps && diffInfos.some(Boolean)
+    const diffCanvas = wantDiffAnim ? document.createElement('canvas') : null
+    const diffTexture = diffCanvas ? mkTex(diffCanvas) : null
+    const redrawDiff = (step: number, animT: number) => {
+      if (!diffCanvas) return
+      drawCard(
+        diffCanvas,
+        snapshots[step] ?? snapshots[0],
+        cardStyle,
+        dpr,
+        boxW,
+        boxH,
+        -1,
+        diffInfos[step] ?? undefined,
+        animT,
+      )
+      if (diffTexture) diffTexture.needsUpdate = true
+    }
+
+    // hero-line spotlight: for each step, the uv.y band covering its added lines.
+    // Skipped in diff mode — the red/green row tints already mark the changes.
+    const spotBands: SpotBand[] =
+      isSteps && !settings.diffMode
         ? snapshots.map((_, i) => {
             if (i === 0) return null
             const added = addedIndices(
@@ -1292,62 +1405,78 @@ export function WebGLScene({
           })
         : []
 
-      // world-space plane: fixed height, width from the box aspect
-      const H = 2.6
-      const W = H * (boxW / boxH)
+    // world-space plane: fixed height, width from the box aspect
+    const H = 2.6
+    const W = H * (boxW / boxH)
 
-      // annotations as separate 3D objects — anchor (line end) in local card space +
-      // a rasterized pill texture; positioned/styled per annotationStyle in the Rig.
-      const scale = H / boxH // world units per logical px (uniform, since W/boxW == H/boxH)
-      const accent = cardStyle.theme.swatch[1]
-      const pillFont = Math.round(cardStyle.fontSize * 0.82)
-      const annoLayout: AnnoItem[][] = snapshots.map((lines, s) => {
-        const m = metrics[s]
-        const offX = (boxW - m.w) / 2
-        const offY = (boxH - m.h) / 2
-        return (snapAnnos[s] ?? [])
-          .filter((a) => a.text.trim() && a.line >= 1 && a.line <= lines.length)
-          .map((a) => {
-            const text = a.text.trim()
-            const color = a.color || accent
-            const endX = offX + m.contentX + lineLength(lines[a.line - 1] ?? []) * m.cw
-            const midY = offY + m.codeTop + (a.line - 0.5) * cardStyle.lineHeightPx
-            const pill = drawAnnotationPill(text, color, cardStyle.fontStack, pillFont, dpr)
-            const tex = new THREE.CanvasTexture(pill.canvas)
-            tex.colorSpace = THREE.SRGBColorSpace
-            tex.minFilter = THREE.LinearMipmapLinearFilter
-            tex.magFilter = THREE.LinearFilter
-            tex.needsUpdate = true
-            return {
-              id: a.id,
-              color,
-              tex,
-              cx: (endX / boxW - 0.5) * W,
-              cy: (1 - midY / boxH - 0.5) * H,
-              w: pill.w * scale,
-              h: pill.h * scale,
-            }
-          })
-      })
-
-      return {
-        textures: texes,
-        planeW: W,
-        planeH: H,
-        consoleTex: consoleTexture,
-        redrawConsole,
-        spotBands,
-        annoLayout,
+    // annotations as separate 3D objects — anchor (line end) in local card space +
+    // a rasterized pill texture; positioned/styled per annotationStyle in the Rig.
+    const scale = H / boxH // world units per logical px (uniform, since W/boxW == H/boxH)
+    const accent = cardStyle.theme.swatch[1]
+    const pillFont = Math.round(cardStyle.fontSize * 0.82)
+    const annoLayout: AnnoItem[][] = snapshots.map((lines, s) => {
+      const m = metrics[s]
+      const offX = (boxW - m.w) / 2
+      const offY = (boxH - m.h) / 2
+      const info = diffInfos[s]
+      // annotation line numbers reference the step's own code; in a merged
+      // diff view the rows shift, so map new-file line → merged row index.
+      const rowOf = (line: number): number => {
+        if (!info) return line - 1
+        let n = 0
+        for (let r = 0; r < info.length; r++) {
+          if (info[r] !== 'removed' && ++n === line) return r
+        }
+        return -1
       }
-    }, [snapshots, snapAnnos, cardStyle, isSteps, settings.steps])
+      return (snapAnnos[s] ?? [])
+        .map((a) => ({ a, row: rowOf(a.line) }))
+        .filter(({ a, row }) => a.text.trim() && row >= 0 && row < lines.length)
+        .map(({ a, row }) => {
+          const text = a.text.trim()
+          const color = a.color || accent
+          const endX = offX + m.contentX + lineLength(lines[row] ?? []) * m.cw
+          const midY = offY + m.codeTop + (row + 0.5) * cardStyle.lineHeightPx
+          const pill = drawAnnotationPill(text, color, cardStyle.fontStack, pillFont, dpr)
+          const tex = new THREE.CanvasTexture(pill.canvas)
+          tex.colorSpace = THREE.SRGBColorSpace
+          tex.minFilter = THREE.LinearMipmapLinearFilter
+          tex.magFilter = THREE.LinearFilter
+          tex.needsUpdate = true
+          return {
+            id: a.id,
+            color,
+            tex,
+            cx: (endX / boxW - 0.5) * W,
+            cy: (1 - midY / boxH - 0.5) * H,
+            w: pill.w * scale,
+            h: pill.h * scale,
+          }
+        })
+    })
+
+    return {
+      textures: texes,
+      planeW: W,
+      planeH: H,
+      consoleTex: consoleTexture,
+      redrawConsole,
+      diffTex: diffTexture,
+      redrawDiff,
+      spotBands,
+      annoLayout,
+      cardSizes,
+    }
+  }, [snapshots, diffInfos, snapAnnos, cardStyle, isSteps, settings.steps, settings.diffMode])
 
   useEffect(
     () => () => {
       textures.forEach((t) => t.dispose())
       consoleTex?.dispose()
+      diffTex?.dispose()
       annoLayout.flat().forEach((a) => a.tex.dispose())
     },
-    [textures, consoleTex, annoLayout],
+    [textures, consoleTex, diffTex, annoLayout],
   )
 
   const bloomIntensity = 0.35 + (settings.bloom / 100) * 1.1 + (FX_BLOOM[settings.sceneFx] ?? 0)
@@ -1399,8 +1528,12 @@ export function WebGLScene({
               glow={glow}
               consoleTex={consoleTex}
               redrawConsole={redrawConsole}
+              diffTex={diffTex}
+              redrawDiff={redrawDiff}
+              diffInfos={diffInfos}
               spotBands={spotBands}
               annoLayout={annoLayout}
+              cardSizes={cardSizes}
             />
             <EffectComposer>
               <Bloom

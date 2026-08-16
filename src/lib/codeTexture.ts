@@ -1,3 +1,4 @@
+import type { DiffStatus } from './diff'
 import type { Token } from './highlight'
 import { lineLength } from './highlight'
 import type { CodeTheme } from './themes'
@@ -42,7 +43,19 @@ const CONSOLE_BODY_PAD = 12
 const CONSOLE_INNER_X = 14 // left inset of console text within its box
 const ANNO_PAD_X = 12 // horizontal padding inside an annotation pill
 
+// git-style diff colours — translucent row tints + solid gutter signs. These
+// mirror the accent palette used elsewhere (annotations, console dots).
+const DIFF_ADD_BG = 'rgba(52, 211, 153, 0.15)'
+const DIFF_DEL_BG = 'rgba(248, 113, 113, 0.14)'
+const DIFF_ADD_FG = '#34d399'
+const DIFF_DEL_FG = '#f87171'
+
 const clamp01 = (t: number) => Math.min(1, Math.max(0, t))
+/** clamped smoothstep 0→1 — eases the per-line diff animation. */
+const smooth01 = (t: number) => {
+  const x = clamp01(t)
+  return x * x * (3 - 2 * x)
+}
 
 /** Monospace advance width — measured once per font/size, uniform across glyphs. */
 function measureCharWidth(ctx: CanvasRenderingContext2D, style: CardStyle): number {
@@ -229,9 +242,15 @@ function paintCard(
   ox: number,
   oy: number,
   consoleReveal: number,
+  diff?: DiffStatus[],
+  animT = -1,
 ) {
   const { theme } = style
   const r = Math.max(0, style.radius)
+  // -1 = static full diff (#1). 0..1 = animate the diff markers in (#2):
+  // added lines fade + slide up in the back half, removed lines get struck +
+  // dimmed in the front half. At animT=1 the result is identical to static.
+  const anim = diff && animT >= 0 ? animT : -1
 
   // card body (rounded) — clipped so chrome + code never bleed past the corners
   ctx.save()
@@ -265,19 +284,69 @@ function paintCard(
   // code lines
   ctx.textBaseline = 'middle'
   const half = style.lineHeightPx / 2
+  // in diff mode the gutter shows new-file numbering: removed lines carry no
+  // number, so kept/added lines number continuously past the gaps.
+  let newLineNo = 0
   lines.forEach((line, i) => {
-    const yMid = oy + m.codeTop + i * style.lineHeightPx + half
+    const status = diff?.[i]
+    const removed = status === 'removed'
+    if (!removed) newLineNo++
 
-    if (style.lineNumbers) {
+    // per-line animation envelopes (anim < 0 → fully settled, i.e. the static view):
+    //   added  — appears in the back half: text fades + slides up, tint/sign grow
+    //   removed — marked in the front half: red tint/strike/dim grow in place
+    let textAlpha = removed ? 0.7 : 1 // matches the static dimmed-removed look
+    let markAlpha = 1 // scales tint, +/− sign, strikethrough
+    let yOff = 0
+    if (anim >= 0 && status && status !== 'same') {
+      if (status === 'added') {
+        const p = smooth01((anim - 0.35) / 0.65)
+        textAlpha = p
+        markAlpha = p
+        yOff = (1 - p) * half
+      } else {
+        const q = smooth01(anim / 0.6)
+        textAlpha = 1 - 0.3 * q
+        markAlpha = q
+      }
+    }
+    const top = oy + m.codeTop + i * style.lineHeightPx + yOff
+    const yMid = top + half
+
+    // full-row tint behind changed lines
+    if (status === 'added' || status === 'removed') {
+      ctx.globalAlpha = markAlpha
+      ctx.fillStyle = status === 'added' ? DIFF_ADD_BG : DIFF_DEL_BG
+      ctx.fillRect(ox, top, m.w, style.lineHeightPx)
+      ctx.globalAlpha = 1
+    }
+
+    // diff sign sits in the card's left padding, ahead of the line numbers
+    if (status && status !== 'same') {
+      ctx.font = `600 ${style.fontSize}px ${style.fontStack}`
+      ctx.textAlign = 'center'
+      ctx.globalAlpha = markAlpha
+      ctx.fillStyle = status === 'added' ? DIFF_ADD_FG : DIFF_DEL_FG
+      ctx.fillText(status === 'added' ? '+' : '−', ox + PAD_X * 0.5, yMid)
+      ctx.globalAlpha = 1
+    }
+
+    if (style.lineNumbers && !removed) {
       ctx.font = `${style.fontSize}px ${style.fontStack}`
       ctx.textAlign = 'right'
       ctx.fillStyle = theme.lineNumber
-      ctx.globalAlpha = 0.8
-      ctx.fillText(String(i + 1), ox + m.contentX - GUTTER_GAP + m.cw * 0.4, yMid)
+      ctx.globalAlpha = 0.8 * (status === 'added' ? textAlpha : 1)
+      // diff mode numbers by new-file position; plain mode by row index
+      ctx.fillText(
+        String(diff ? newLineNo : i + 1),
+        ox + m.contentX - GUTTER_GAP + m.cw * 0.4,
+        yMid,
+      )
       ctx.globalAlpha = 1
     }
 
     ctx.textAlign = 'left'
+    ctx.globalAlpha = textAlpha
     let x = ox + m.contentX
     for (const tok of line) {
       ctx.font =
@@ -288,6 +357,20 @@ function paintCard(
       ctx.fillText(tok.s, x, yMid)
       x += tok.s.length * m.cw
     }
+    // strike through removed code
+    if (removed) {
+      const w = lineLength(line) * m.cw
+      if (w > 0) {
+        ctx.strokeStyle = DIFF_DEL_FG
+        ctx.globalAlpha = 0.55 * markAlpha
+        ctx.lineWidth = 1
+        ctx.beginPath()
+        ctx.moveTo(ox + m.contentX, yMid)
+        ctx.lineTo(ox + m.contentX + w, yMid)
+        ctx.stroke()
+      }
+    }
+    ctx.globalAlpha = 1
   })
 
   // console section (reserved space is always allocated; only drawn when active)
@@ -314,6 +397,11 @@ function paintCard(
  *
  * `consoleReveal`: -1 = console space reserved but empty (code phases); 0..1 =
  * draw the console box with that fraction typed (console phase).
+ *
+ * `diff`: optional per-line status (parallel to `lines`) — when present the card
+ * renders as a git-style merged diff (row tints, +/− gutter, struck-out removals).
+ * `animT`: -1 draws the diff fully settled; 0..1 animates its markers in (added
+ * lines fade/slide in, removed lines get struck) — used by the step transition.
  */
 export function drawCard(
   canvas: HTMLCanvasElement,
@@ -323,6 +411,8 @@ export function drawCard(
   boxW: number,
   boxH: number,
   consoleReveal = -1,
+  diff?: DiffStatus[],
+  animT = -1,
 ): CardMetrics {
   const m = measureCard(lines, style)
   const ctx = canvas.getContext('2d')!
@@ -330,7 +420,7 @@ export function drawCard(
   canvas.height = Math.ceil(boxH * dpr)
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
   ctx.clearRect(0, 0, boxW, boxH)
-  paintCard(ctx, lines, style, m, (boxW - m.w) / 2, (boxH - m.h) / 2, consoleReveal)
+  paintCard(ctx, lines, style, m, (boxW - m.w) / 2, (boxH - m.h) / 2, consoleReveal, diff, animT)
   return m
 }
 
