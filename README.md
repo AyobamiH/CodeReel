@@ -7,7 +7,6 @@ preview shows and encodes them in-browser, no backend required.
 
 <img width="960" height="540" alt="demo3" src="https://github.com/user-attachments/assets/9b035483-33e1-4ee3-9855-2076baa62236" />
 
-
 ## Features
 
 - ✅ Live WebGL preview with real 3D depth, camera moves, and themed scene effects
