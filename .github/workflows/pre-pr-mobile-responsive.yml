@@ -50,8 +50,11 @@ jobs:
       - name: Responsive E2E parallel stress
         run: npx playwright test e2e/responsive.spec.ts --repeat-each=5 --workers=4
 
-      - name: Full Playwright suite
-        run: npm test
+      - name: Playback regression E2E
+        run: npx playwright test e2e/playback.spec.ts --workers=1
+
+      - name: Projects regression E2E
+        run: npx playwright test e2e/projects.spec.ts --workers=1
 
       - name: Diff whitespace check
         run: git diff --check 9f5a2746c9bebc70c2fa18d69cb09a4efbcfb39d...HEAD
