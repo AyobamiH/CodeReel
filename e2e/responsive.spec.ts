@@ -1,0 +1,87 @@
+import { expect, test, type Page } from '@playwright/test'
+import { codePanel, expectNoPageErrors, openApp } from './app.js'
+
+async function expectNoHorizontalPageOverflow(page: Page): Promise<void> {
+  const overflow = await page.evaluate(
+    () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+  )
+  expect(overflow, 'the page should not overflow horizontally').toBeLessThanOrEqual(1)
+}
+
+for (const viewport of [
+  { width: 320, height: 800 },
+  { width: 375, height: 812 },
+]) {
+  test.describe(`mobile workspace at ${viewport.width}px`, () => {
+    test.use({ viewport })
+
+    test.beforeEach(async ({ page }) => {
+      await openApp(page)
+    })
+
+    test.afterEach(async ({ page }) => {
+      await expectNoPageErrors(page)
+    })
+
+    test('keeps preview and primary controls usable without page overflow', async ({ page }) => {
+      const workspaceNav = page.getByRole('navigation', { name: 'Editor workspace' })
+      const previewTab = workspaceNav.getByRole('button', { name: 'Preview' })
+
+      await expect(workspaceNav).toBeVisible()
+      await expect(previewTab).toHaveAttribute('aria-pressed', 'true')
+      await expect(page.locator('main')).toBeVisible()
+      await expect(page.locator('main canvas')).toBeVisible({ timeout: 15_000 })
+      await expect(page.getByTitle('Play / pause (Space)')).toBeVisible()
+      await expect(page.getByRole('button', { name: 'Open projects' })).toBeVisible()
+      await expect(page.getByRole('button', { name: 'Save project' })).toBeVisible()
+      await expect(page.getByRole('button', { name: 'Export GIF' })).toBeVisible()
+      await expectNoHorizontalPageOverflow(page)
+    })
+
+    test('switches Code, Preview and Style without losing editor state', async ({ page }) => {
+      const workspaceNav = page.getByRole('navigation', { name: 'Editor workspace' })
+      const marker = `const mobileWidth = ${viewport.width}`
+
+      await workspaceNav.getByRole('button', { name: 'Code' }).click()
+      const editor = page.locator('textarea').first()
+      await expect(editor).toBeVisible()
+      await editor.fill(marker)
+      await expectNoHorizontalPageOverflow(page)
+
+      await workspaceNav.getByRole('button', { name: 'Style' }).click()
+      const stylePanel = page.locator('aside').last()
+      await expect(stylePanel).toBeVisible()
+      const styleToggle = stylePanel.getByRole('switch').first()
+      await expect(styleToggle).toBeVisible()
+      const wasChecked = await styleToggle.getAttribute('aria-checked')
+      await styleToggle.click()
+      await expect(styleToggle).toHaveAttribute(
+        'aria-checked',
+        wasChecked === 'true' ? 'false' : 'true',
+      )
+      await expectNoHorizontalPageOverflow(page)
+
+      await workspaceNav.getByRole('button', { name: 'Code' }).click()
+      await expect(editor).toHaveValue(marker)
+
+      await workspaceNav.getByRole('button', { name: 'Preview' }).click()
+      await expect(page.locator('main canvas')).toBeVisible({ timeout: 15_000 })
+      await expectNoHorizontalPageOverflow(page)
+    })
+  })
+}
+
+test.describe('desktop workspace', () => {
+  test.use({ viewport: { width: 1600, height: 900 } })
+
+  test('preserves the existing three-column editor', async ({ page }) => {
+    await openApp(page)
+
+    await expect(page.getByRole('navigation', { name: 'Editor workspace' })).toBeHidden()
+    await expect(codePanel(page)).toBeVisible()
+    await expect(page.locator('main')).toBeVisible()
+    await expect(page.locator('aside').last()).toBeVisible()
+    await expectNoHorizontalPageOverflow(page)
+    await expectNoPageErrors(page)
+  })
+})
