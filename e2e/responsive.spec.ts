@@ -26,15 +26,26 @@ for (const viewport of [
     test('keeps preview and primary controls usable without page overflow', async ({ page }) => {
       const workspaceNav = page.getByRole('navigation', { name: 'Editor workspace' })
       const previewTab = workspaceNav.getByRole('button', { name: 'Preview' })
+      const playbackControls = page.getByRole('group', { name: 'Playback controls' })
 
       await expect(workspaceNav).toBeVisible()
       await expect(previewTab).toHaveAttribute('aria-pressed', 'true')
       await expect(page.locator('main')).toBeVisible()
       await expect(page.locator('main canvas')).toBeVisible({ timeout: 15_000 })
+      await expect(playbackControls).toBeVisible()
+      await expect(page.getByTitle('Restart (R)')).toBeVisible()
       await expect(page.getByTitle('Play / pause (Space)')).toBeVisible()
+      await expect(page.getByTitle('Loop')).toBeVisible()
       await expect(page.getByRole('button', { name: 'Open projects' })).toBeVisible()
       await expect(page.getByRole('button', { name: 'Save project' })).toBeVisible()
       await expect(page.getByRole('button', { name: 'Export GIF' })).toBeVisible()
+
+      const playbackOverflow = await playbackControls.evaluate(
+        (element) => element.scrollWidth - element.clientWidth,
+      )
+      expect(playbackOverflow, 'playback controls should not scroll horizontally').toBeLessThanOrEqual(
+        1,
+      )
       await expectNoHorizontalPageOverflow(page)
     })
 
