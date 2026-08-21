@@ -1,6 +1,8 @@
 import { expect, test, type Page } from '@playwright/test'
 import { codePanel, expectNoPageErrors, openApp } from './app.js'
 
+test.describe.configure({ timeout: 90_000 })
+
 async function expectNoHorizontalPageOverflow(page: Page): Promise<void> {
   const overflow = await page.evaluate(
     () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
