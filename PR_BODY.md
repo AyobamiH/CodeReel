@@ -7,8 +7,8 @@ This keeps the change focused on Issue #18:
 - adds a small-screen `Code / Preview / Style` workspace switcher
 - keeps Preview as the default mobile workspace
 - makes the top bar and playback controls fit common mobile widths without horizontal scrolling
-- keeps the existing Code, Preview and Style components/state rather than duplicating mobile implementations
-- preserves the existing desktop three-column editor at desktop widths
+- reuses the existing Code, Preview and Style components/state rather than adding duplicate mobile implementations
+- preserves the existing desktop three-column editor
 - adds Playwright coverage at 320px, 375px and desktop width
 
 ## Related issue
@@ -25,7 +25,22 @@ Closes #18
 
 ## How has this been tested?
 
-Playwright coverage verifies:
+Final validated head: `ebda63d1dd44badaa7a8cefac03a3518c6416e4e`.
+
+Verified with:
+
+```sh
+npm ci
+npm run format:check
+npm run lint
+npm run test:unit
+npm run build
+npx playwright test e2e/responsive.spec.ts --ui
+npx playwright test e2e/playback.spec.ts --workers=1
+git diff --check upstream/main...HEAD
+```
+
+Responsive Playwright coverage passed 5/5 on the final head and verifies:
 
 - 320px: Preview and primary controls remain visible and the page/playback controls do not overflow horizontally
 - 320px: Code / Preview / Style switching preserves editor state
@@ -35,34 +50,47 @@ Playwright coverage verifies:
 
 Manual checks also covered playback interaction, timeline scrubbing, Projects, Save/Export reachability, Code editing, Style changes, state retention and returning to Preview.
 
-### Video evidence
+## Video evidence
 
-#### 320px: Preview, primary controls and horizontal overflow
+### 320px: Preview, primary controls and horizontal overflow
+
 `codereel-issue-18-320px-preview-controls.webm`
 
 Shows the preview remaining usable at 320px, playback controls fitting without horizontal scrolling, and the primary Projects, Save and Export controls remaining reachable.
 
-#### 320px: Code / Preview / Style switching and state preservation
+<!-- drag codereel-issue-18-320px-preview-controls.webm here -->
+
+### 320px: Code / Preview / Style switching and state preservation
+
 `codereel-issue-18-320px-workspace-state.webm`
 
 Shows the mobile workspace switcher moving between Code, Preview and Style while preserving editor state.
 
-#### 375px: Preview, primary controls and horizontal overflow
+<!-- drag codereel-issue-18-320px-workspace-state.webm here -->
+
+### 375px: Preview, primary controls and horizontal overflow
+
 `codereel-issue-18-375px-preview-controls.webm`
 
 Shows the same responsive behaviour at 375px with the preview and primary controls remaining usable without horizontal overflow.
 
-#### 375px: Code / Preview / Style switching and state preservation
+<!-- drag codereel-issue-18-375px-preview-controls.webm here -->
+
+### 375px: Code / Preview / Style switching and state preservation
+
 `codereel-issue-18-375px-workspace-state.webm`
 
 Shows Code, Preview and Style switching at 375px while retaining editor state.
 
-#### Desktop: Existing three-column editor preserved
+<!-- drag codereel-issue-18-375px-workspace-state.webm here -->
+
+### Desktop: Existing three-column editor preserved
+
 `codereel-issue-18-desktop-three-column-preservation.webm`
 
 Shows the existing desktop Code / Preview / Style three-column layout remaining intact at desktop width.
 
-> The five `.webm` files above are the exact Playwright recordings to attach in these positions when the PR is opened.
+<!-- drag codereel-issue-18-desktop-three-column-preservation.webm here -->
 
 ## Screenshots
 
