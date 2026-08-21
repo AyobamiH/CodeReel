@@ -1,7 +1,10 @@
 import { expect, test, type Page } from '@playwright/test'
 import { codePanel, expectNoPageErrors, openApp } from './app.js'
 
-test.describe.configure({ timeout: 90_000 })
+// Each responsive test mounts CodeReel's continuously-rendering WebGL preview.
+// Keep this file serial so local UI mode does not run several canvases at once
+// and starve Playwright's actionability checks.
+test.describe.configure({ mode: 'serial', timeout: 90_000 })
 
 async function expectNoHorizontalPageOverflow(page: Page): Promise<void> {
   const overflow = await page.evaluate(
