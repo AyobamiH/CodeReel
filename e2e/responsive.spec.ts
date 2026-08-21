@@ -1,10 +1,24 @@
 import { expect, test, type Page } from '@playwright/test'
 import { codePanel, expectNoPageErrors, openApp } from './app.js'
 
-// Each responsive test mounts CodeReel's continuously-rendering WebGL preview.
-// Keep this file serial so local UI mode does not run several canvases at once
-// and starve Playwright's actionability checks.
+// Each responsive test mounts CodeReel's WebGL preview. Keep this file serial so
+// local UI mode does not run several canvases at once and starve Playwright's
+// actionability checks.
 test.describe.configure({ mode: 'serial', timeout: 90_000 })
+
+async function pausePlayback(page: Page): Promise<void> {
+  const toggle = page.locator('button[aria-label="Preview playback"]')
+  await expect(toggle).toHaveAttribute('aria-pressed', /true|false/, { timeout: 15_000 })
+
+  if ((await toggle.getAttribute('aria-pressed')) === 'true') {
+    // This is test setup, not the interaction under test. Trigger the native click
+    // directly so freezing the renderer does not itself depend on Playwright's
+    // actionability checks while WebGL is busy drawing the opening frames.
+    await toggle.evaluate((button: HTMLButtonElement) => button.click())
+  }
+
+  await expect(toggle).toHaveAttribute('aria-pressed', 'false')
+}
 
 async function expectNoHorizontalPageOverflow(page: Page): Promise<void> {
   const overflow = await page.evaluate(
@@ -22,6 +36,7 @@ for (const viewport of [
 
     test.beforeEach(async ({ page }) => {
       await openApp(page)
+      await pausePlayback(page)
     })
 
     test.afterEach(async ({ page }) => {
@@ -62,6 +77,9 @@ for (const viewport of [
       const editor = page.locator('textarea').first()
       await expect(editor).toBeVisible()
       await editor.fill(marker)
+      // Editing code intentionally restarts playback. Freeze it again before the
+      // remaining responsive interactions so WebGL cannot starve their clicks.
+      await pausePlayback(page)
       await expectNoHorizontalPageOverflow(page)
 
       await workspaceNav.getByRole('button', { name: 'Style' }).click()
