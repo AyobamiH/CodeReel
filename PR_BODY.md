@@ -54,31 +54,31 @@ Manual checks also covered playback interaction, timeline scrubbing, Projects, S
 
 ### 320px: Preview, primary controls and horizontal overflow
 
-[Watch `codereel-issue-18-320px-preview-controls.webm`](https://res.cloudinary.com/dxj7qhlc4/video/upload/v1787353613/codereel/issue-18-pr-evidence/320px-preview-controls.webm)
+[Watch `codereel-issue-18-320px-preview-controls.webm`](https://res.cloudinary.com/dxj7qhlc4/video/upload/codereel/issue-18-pr-evidence/320px-preview-controls.webm)
 
 Shows the preview remaining usable at 320px, playback controls fitting without horizontal scrolling, and the primary Projects, Save and Export controls remaining reachable.
 
 ### 320px: Code / Preview / Style switching and state preservation
 
-[Watch `codereel-issue-18-320px-workspace-state.webm`](https://res.cloudinary.com/dxj7qhlc4/video/upload/v1787353663/codereel/issue-18-pr-evidence/320px-workspace-state.webm)
+[Watch `codereel-issue-18-320px-workspace-state.webm`](https://res.cloudinary.com/dxj7qhlc4/video/upload/codereel/issue-18-pr-evidence/320px-workspace-state.webm)
 
 Shows the mobile workspace switcher moving between Code, Preview and Style while preserving editor state.
 
 ### 375px: Preview, primary controls and horizontal overflow
 
-[Watch `codereel-issue-18-375px-preview-controls.webm`](https://res.cloudinary.com/dxj7qhlc4/video/upload/v1787353715/codereel/issue-18-pr-evidence/375px-preview-controls.webm)
+[Watch `codereel-issue-18-375px-preview-controls.webm`](https://res.cloudinary.com/dxj7qhlc4/video/upload/codereel/issue-18-pr-evidence/375px-preview-controls.webm)
 
 Shows the same responsive behaviour at 375px with the preview and primary controls remaining usable without horizontal overflow.
 
 ### 375px: Code / Preview / Style switching and state preservation
 
-[Watch `codereel-issue-18-375px-workspace-state.webm`](https://res.cloudinary.com/dxj7qhlc4/video/upload/v1787353837/codereel/issue-18-pr-evidence/375px-workspace-state.webm)
+[Watch `codereel-issue-18-375px-workspace-state.webm`](https://res.cloudinary.com/dxj7qhlc4/video/upload/codereel/issue-18-pr-evidence/375px-workspace-state.webm)
 
 Shows Code, Preview and Style switching at 375px while retaining editor state.
 
 ### Desktop: Existing three-column editor preserved
 
-[Watch `codereel-issue-18-desktop-three-column-preservation.webm`](https://res.cloudinary.com/dxj7qhlc4/video/upload/v1787353782/codereel/issue-18-pr-evidence/desktop-three-column-preservation.webm)
+[Watch `codereel-issue-18-desktop-three-column-preservation.webm`](https://res.cloudinary.com/dxj7qhlc4/video/upload/codereel/issue-18-pr-evidence/desktop-three-column-preservation.webm)
 
 Shows the existing desktop Code / Preview / Style three-column layout remaining intact at desktop width.
 
