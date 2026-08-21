@@ -55,7 +55,9 @@ for (const viewport of [
       await expect(playbackControls).toBeVisible()
       await expect(page.getByTitle('Restart (R)')).toBeVisible()
       await expect(page.getByTitle('Play / pause (Space)')).toBeVisible()
-      await expect(page.getByTitle('Loop')).toBeVisible()
+      await expect(
+        playbackControls.getByRole('button', { name: 'Loop', exact: true }),
+      ).toBeVisible()
       await expect(page.getByRole('button', { name: 'Open projects' })).toBeVisible()
       await expect(page.getByRole('button', { name: 'Save project' })).toBeVisible()
       await expect(page.getByRole('button', { name: 'Export GIF' })).toBeVisible()
@@ -63,9 +65,10 @@ for (const viewport of [
       const playbackOverflow = await playbackControls.evaluate(
         (element) => element.scrollWidth - element.clientWidth,
       )
-      expect(playbackOverflow, 'playback controls should not scroll horizontally').toBeLessThanOrEqual(
-        1,
-      )
+      expect(
+        playbackOverflow,
+        'playback controls should not scroll horizontally',
+      ).toBeLessThanOrEqual(1)
       await expectNoHorizontalPageOverflow(page)
     })
 
