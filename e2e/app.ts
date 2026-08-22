@@ -28,10 +28,12 @@ export async function currentTime(page: Page): Promise<number> {
  * than the DOM — freezing playback first makes those comparisons deterministic.
  */
 export async function pausePreview(page: Page): Promise<void> {
-  // This is test setup, not the interaction under test. Read the preview control's
-  // state first, then trigger its native click directly so a busy software-rendered
-  // WebGL frame cannot starve Playwright's actionability checks while we pause it.
-  const toggle = page.getByRole('button', { name: 'Preview playback' })
+  // This is test setup, not the interaction under test. The preview workspace may
+  // be visually hidden on mobile while Code or Style is active, so include hidden
+  // controls when locating the same mounted playback button. Trigger its native
+  // click directly so a busy software-rendered WebGL frame cannot starve
+  // Playwright's actionability checks while we pause it.
+  const toggle = page.getByRole('button', { name: 'Preview playback', includeHidden: true })
   await expect(toggle).toHaveAttribute('aria-pressed', /true|false/, { timeout: 15_000 })
   if ((await toggle.getAttribute('aria-pressed')) === 'true') {
     await toggle.evaluate((button: HTMLButtonElement) => button.click())
